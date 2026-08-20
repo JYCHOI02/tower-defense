@@ -541,6 +541,7 @@ function draw() {
 
 function drawBackground() {
 
+    // 기본 배경
     ctx.fillStyle = "#6f9d52";
 
     ctx.fillRect(
@@ -551,48 +552,54 @@ function drawBackground() {
     );
 
 
-    // 격자
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.16)";
+    // 격자 칸
+    for (let row = 0; row < ROWS; row++) {
 
-    ctx.lineWidth = 1;
+        for (let col = 0; col < COLS; col++) {
 
-
-    for (
-        let col = 0;
-        col <= COLS;
-        col++
-    ) {
-
-        const x =
-            col * TILE_SIZE;
-
-        ctx.beginPath();
-
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, canvas.height);
-
-        ctx.stroke();
-    }
+            const x = col * TILE_SIZE;
+            const y = row * TILE_SIZE;
 
 
-    for (
-        let row = 0;
-        row <= ROWS;
-        row++
-    ) {
+            // 길
+            if (isPathTile(col, row)) {
 
-        const y =
-            row * TILE_SIZE;
+                ctx.fillStyle = "#b6a477";
 
-        ctx.beginPath();
+            } else {
 
-        ctx.moveTo(0, y);
-        ctx.lineTo(canvas.width, y);
+                // 설치 가능한 일반 타일
+                ctx.fillStyle =
+                    (col + row) % 2 === 0
+                        ? "#719f54"
+                        : "#6b984f";
+            }
 
-        ctx.stroke();
+
+            ctx.fillRect(
+                x,
+                y,
+                TILE_SIZE,
+                TILE_SIZE
+            );
+
+
+            // 격자선
+            ctx.strokeStyle =
+                "rgba(255,255,255,0.28)";
+
+            ctx.lineWidth = 1;
+
+            ctx.strokeRect(
+                x + 0.5,
+                y + 0.5,
+                TILE_SIZE - 1,
+                TILE_SIZE - 1
+            );
+        }
     }
 }
+
 
 
 // =====================================================
@@ -648,6 +655,7 @@ function drawPath() {
 
 function drawTowerPreview() {
 
+    // 마우스가 게임 영역 밖에 있으면 표시하지 않음
     if (
         mouseCol < 0 ||
         mouseRow < 0 ||
@@ -664,6 +672,7 @@ function drawTowerPreview() {
         mouseRow * TILE_SIZE;
 
 
+    // 설치 가능 여부
     const canBuild =
         !isPathTile(
             mouseCol,
@@ -676,21 +685,47 @@ function drawTowerPreview() {
         gold >= 40;
 
 
+    // ==========================================
+    // 현재 마우스가 올라간 격자 강조
+    // ==========================================
+
     ctx.fillStyle =
         canBuild
-            ? "rgba(80,180,255,0.28)"
-            : "rgba(255,70,70,0.28)";
+            ? "rgba(80, 180, 255, 0.35)"
+            : "rgba(255, 70, 70, 0.35)";
 
 
     ctx.fillRect(
-        x + 3,
-        y + 3,
-        TILE_SIZE - 6,
-        TILE_SIZE - 6
+        x + 2,
+        y + 2,
+        TILE_SIZE - 4,
+        TILE_SIZE - 4
     );
 
 
-    // 설치 미리보기 타워
+    // ==========================================
+    // 격자 테두리 강조
+    // ==========================================
+
+    ctx.strokeStyle =
+        canBuild
+            ? "#8ed8ff"
+            : "#ff6b6b";
+
+    ctx.lineWidth = 3;
+
+    ctx.strokeRect(
+        x + 2,
+        y + 2,
+        TILE_SIZE - 4,
+        TILE_SIZE - 4
+    );
+
+
+    // ==========================================
+    // 설치 가능한 경우 타워 미리보기
+    // ==========================================
+
     if (canBuild) {
 
         const center =
@@ -702,29 +737,48 @@ function drawTowerPreview() {
 
         ctx.globalAlpha = 0.55;
 
+
+        // 타워 바닥
+        ctx.fillStyle = "#263238";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            center.x,
+            center.y,
+            20,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+
+        // 타워 본체
         ctx.fillStyle = "#4569d4";
 
         ctx.fillRect(
-            center.x - 13,
-            center.y - 13,
-            26,
-            26
+            center.x - 14,
+            center.y - 14,
+            28,
+            28
         );
 
 
-        ctx.fillStyle = "#9bb8ff";
+        // 포신
+        ctx.fillStyle = "#a9c0ff";
 
         ctx.fillRect(
             center.x - 4,
             center.y - 27,
             8,
-            18
+            17
         );
+
 
         ctx.globalAlpha = 1;
     }
 }
-
 
 // =====================================================
 // TOWERS
