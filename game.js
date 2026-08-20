@@ -541,7 +541,7 @@ function draw() {
 
 function drawBackground() {
 
-    // 기본 맵 배경
+    // 기본 배경
     ctx.fillStyle = "#6f9d52";
 
     ctx.fillRect(
@@ -552,35 +552,26 @@ function drawBackground() {
     );
 
 
-    // 자연스러운 바닥 패턴
-    for (let row = 0; row < ROWS; row++) {
-
-        for (let col = 0; col < COLS; col++) {
-
-            const x = col * TILE_SIZE;
-            const y = row * TILE_SIZE;
+    // 격자를 그리지 않고
+    // 맵 전체를 자연스럽게 유지
 
 
-            if (isPathTile(col, row)) {
-                continue;
-            }
+    // 길 타일만 표시
+    pathTiles.forEach(tile => {
+
+        const x = tile.col * TILE_SIZE;
+        const y = tile.row * TILE_SIZE;
 
 
-            // 아주 약한 타일 색상 차이만 유지
-            ctx.fillStyle =
-                (col + row) % 2 === 0
-                    ? "rgba(255,255,255,0.025)"
-                    : "rgba(0,0,0,0.025)";
+        ctx.fillStyle = "#b6a477";
 
-
-            ctx.fillRect(
-                x,
-                y,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-        }
-    }
+        ctx.fillRect(
+            x + 2,
+            y + 2,
+            TILE_SIZE - 4,
+            TILE_SIZE - 4
+        );
+    });
 }
 
 
@@ -637,6 +628,7 @@ function drawPath() {
 
 function drawTowerPreview() {
 
+    // 마우스가 맵 밖에 있으면 표시하지 않음
     if (
         mouseCol < 0 ||
         mouseRow < 0 ||
@@ -646,67 +638,6 @@ function drawTowerPreview() {
     }
 
 
-    // ==========================================
-    // 마우스 주변에만 격자 표시
-    // ==========================================
-
-    const gridRange = 2;
-
-
-    for (
-        let row = Math.max(0, mouseRow - gridRange);
-        row <= Math.min(ROWS - 1, mouseRow + gridRange);
-        row++
-    ) {
-
-        for (
-            let col = Math.max(0, mouseCol - gridRange);
-            col <= Math.min(COLS - 1, mouseCol + gridRange);
-            col++
-        ) {
-
-            const x = col * TILE_SIZE;
-            const y = row * TILE_SIZE;
-
-
-            // 길은 격자 표시에서 제외
-            if (isPathTile(col, row)) {
-                continue;
-            }
-
-
-            // 은은한 격자 배경
-            ctx.fillStyle =
-                "rgba(255,255,255,0.05)";
-
-            ctx.fillRect(
-                x,
-                y,
-                TILE_SIZE,
-                TILE_SIZE
-            );
-
-
-            // 격자선
-            ctx.strokeStyle =
-                "rgba(255,255,255,0.18)";
-
-            ctx.lineWidth = 1;
-
-            ctx.strokeRect(
-                x + 0.5,
-                y + 0.5,
-                TILE_SIZE - 1,
-                TILE_SIZE - 1
-            );
-        }
-    }
-
-
-    // ==========================================
-    // 현재 선택된 칸
-    // ==========================================
-
     const x =
         mouseCol * TILE_SIZE;
 
@@ -714,6 +645,7 @@ function drawTowerPreview() {
         mouseRow * TILE_SIZE;
 
 
+    // 설치 가능 여부
     const canBuild =
         !isPathTile(
             mouseCol,
@@ -726,11 +658,14 @@ function drawTowerPreview() {
         gold >= 40;
 
 
-    // 현재 칸 강조
+    // ==========================================
+    // 마우스가 올라간 칸만 표시
+    // ==========================================
+
     ctx.fillStyle =
         canBuild
-            ? "rgba(80,180,255,0.35)"
-            : "rgba(255,70,70,0.35)";
+            ? "rgba(80, 180, 255, 0.18)"
+            : "rgba(255, 70, 70, 0.18)";
 
 
     ctx.fillRect(
@@ -741,13 +676,13 @@ function drawTowerPreview() {
     );
 
 
-    // 현재 칸 테두리
+    // 현재 칸의 테두리
     ctx.strokeStyle =
         canBuild
-            ? "#8ed8ff"
-            : "#ff6b6b";
+            ? "rgba(140, 220, 255, 0.9)"
+            : "rgba(255, 100, 100, 0.9)";
 
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 2;
 
     ctx.strokeRect(
         x + 2,
@@ -758,7 +693,7 @@ function drawTowerPreview() {
 
 
     // ==========================================
-    // 타워 미리보기
+    // 설치 가능할 때만 타워 미리보기
     // ==========================================
 
     if (canBuild) {
@@ -770,10 +705,10 @@ function drawTowerPreview() {
             );
 
 
-        ctx.globalAlpha = 0.55;
+        ctx.globalAlpha = 0.5;
 
 
-        // 바닥
+        // 타워 바닥
         ctx.fillStyle = "#263238";
 
         ctx.beginPath();
@@ -789,7 +724,7 @@ function drawTowerPreview() {
         ctx.fill();
 
 
-        // 타워
+        // 타워 본체
         ctx.fillStyle = "#4569d4";
 
         ctx.fillRect(
