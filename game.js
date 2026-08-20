@@ -584,46 +584,120 @@ function drawBackground() {
 
 function drawPath() {
 
-    pathTiles.forEach(tile => {
+    if (pathTiles.length === 0) return;
 
-        const x = tile.col * TILE_SIZE;
-        const y = tile.row * TILE_SIZE;
+    const pathWidth = TILE_SIZE - 4;
+
+    ctx.save();
+
+    // ==========================================
+    // 길의 외곽
+    // ==========================================
+
+    ctx.strokeStyle = "#8d7a52";
+    ctx.lineWidth = pathWidth + 4;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+
+    const first = tileCenter(
+        pathTiles[0].col,
+        pathTiles[0].row
+    );
+
+    ctx.moveTo(first.x, first.y);
 
 
-        ctx.fillStyle = "#b6a477";
+    for (let i = 1; i < pathTiles.length; i++) {
 
-        ctx.fillRect(
-            x + 2,
-            y + 2,
-            TILE_SIZE - 4,
-            TILE_SIZE - 4
-        );
+        const tile = pathTiles[i];
 
-
-        // 길 중앙선
-        ctx.strokeStyle =
-            "rgba(255,255,255,0.22)";
-
-        ctx.setLineDash([6, 6]);
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            x + 10,
-            y + TILE_SIZE / 2
+        const center = tileCenter(
+            tile.col,
+            tile.row
         );
 
         ctx.lineTo(
-            x + TILE_SIZE - 10,
-            y + TILE_SIZE / 2
+            center.x,
+            center.y
+        );
+    }
+
+    ctx.stroke();
+
+
+    // ==========================================
+    // 실제 길
+    // ==========================================
+
+    ctx.strokeStyle = "#b6a477";
+    ctx.lineWidth = pathWidth;
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+
+    ctx.beginPath();
+
+    ctx.moveTo(first.x, first.y);
+
+
+    for (let i = 1; i < pathTiles.length; i++) {
+
+        const tile = pathTiles[i];
+
+        const center = tileCenter(
+            tile.col,
+            tile.row
         );
 
-        ctx.stroke();
+        ctx.lineTo(
+            center.x,
+            center.y
+        );
+    }
 
-        ctx.setLineDash([]);
-    });
+    ctx.stroke();
+
+
+    // ==========================================
+    // 길 중앙의 은은한 무늬
+    // ==========================================
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.16)";
+
+    ctx.lineWidth = 2;
+
+    ctx.lineCap = "round";
+
+    ctx.setLineDash([7, 9]);
+
+    ctx.beginPath();
+
+    ctx.moveTo(first.x, first.y);
+
+
+    for (let i = 1; i < pathTiles.length; i++) {
+
+        const tile = pathTiles[i];
+
+        const center = tileCenter(
+            tile.col,
+            tile.row
+        );
+
+        ctx.lineTo(
+            center.x,
+            center.y
+        );
+    }
+
+    ctx.stroke();
+
+    ctx.setLineDash([]);
+
+    ctx.restore();
 }
-
 
 // =====================================================
 // TOWER PREVIEW
