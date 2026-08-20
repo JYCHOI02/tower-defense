@@ -6,6 +6,23 @@ const goldText = document.getElementById("gold");
 const waveText = document.getElementById("wave");
 const startButton = document.getElementById("startButton");
 
+
+// =====================================================
+// MAP
+// =====================================================
+
+const COLS = 15;
+const ROWS = 9;
+const TILE_SIZE = 60;
+
+canvas.width = COLS * TILE_SIZE;
+canvas.height = ROWS * TILE_SIZE;
+
+
+// =====================================================
+// GAME STATE
+// =====================================================
+
 let gameRunning = false;
 
 let baseHP = 100;
@@ -17,30 +34,64 @@ const enemies = [];
 const bullets = [];
 const effects = [];
 
-let mouseX = 0;
-let mouseY = 0;
-let mouseInside = false;
+let mouseCol = -1;
+let mouseRow = -1;
 
 
-/* =========================
-   PATH
-========================= */
+// =====================================================
+// PATH
+// 적이 지나가는 격자 좌표
+// =====================================================
 
-const path = [
-    { x: 0, y: 275 },
-    { x: 220, y: 275 },
-    { x: 220, y: 130 },
-    { x: 600, y: 130 },
-    { x: 600, y: 410 },
-    { x: 900, y: 410 }
+const pathTiles = [
+    { col: 0, row: 4 },
+    { col: 1, row: 4 },
+    { col: 2, row: 4 },
+    { col: 3, row: 4 },
+
+    { col: 3, row: 3 },
+    { col: 3, row: 2 },
+
+    { col: 4, row: 2 },
+    { col: 5, row: 2 },
+    { col: 6, row: 2 },
+    { col: 7, row: 2 },
+    { col: 8, row: 2 },
+
+    { col: 8, row: 3 },
+    { col: 8, row: 4 },
+    { col: 8, row: 5 },
+
+    { col: 9, row: 5 },
+    { col: 10, row: 5 },
+    { col: 11, row: 5 },
+    { col: 12, row: 5 },
+    { col: 13, row: 5 },
+
+    { col: 14, row: 5 }
 ];
 
 
-/* =========================
-   GAME START
-========================= */
+// =====================================================
+// GRID → PIXEL
+// =====================================================
 
-startButton.addEventListener("click", () => {
+function tileCenter(col, row) {
+    return {
+        x: col * TILE_SIZE + TILE_SIZE / 2,
+        y: row * TILE_SIZE + TILE_SIZE / 2
+    };
+}
+
+
+// =====================================================
+// START
+// =====================================================
+
+startButton.addEventListener("click", startGame);
+
+
+function startGame() {
 
     gameRunning = true;
 
@@ -61,37 +112,14 @@ startButton.addEventListener("click", () => {
     spawnEnemy();
 
     requestAnimationFrame(gameLoop);
-});
+}
 
 
-/* =========================
-   MOUSE
-========================= */
+// =====================================================
+// MOUSE
+// =====================================================
 
 canvas.addEventListener("mousemove", (event) => {
-
-    const rect = canvas.getBoundingClientRect();
-
-    mouseX =
-        (event.clientX - rect.left)
-        * (canvas.width / rect.width);
-
-    mouseY =
-        (event.clientY - rect.top)
-        * (canvas.height / rect.height);
-
-    mouseInside = true;
-});
-
-
-canvas.addEventListener("mouseleave", () => {
-    mouseInside = false;
-});
-
-
-canvas.addEventListener("click", (event) => {
-
-    if (!gameRunning) return;
 
     const rect = canvas.getBoundingClientRect();
 
@@ -103,35 +131,63 @@ canvas.addEventListener("click", (event) => {
         (event.clientY - rect.top)
         * (canvas.height / rect.height);
 
+    mouseCol = Math.floor(x / TILE_SIZE);
+    mouseRow = Math.floor(y / TILE_SIZE);
+});
 
-    if (gold < 40) return;
+
+canvas.addEventListener("mouseleave", () => {
+
+    mouseCol = -1;
+    mouseRow = -1;
+});
 
 
-    // 경로 위에는 타워 설치 불가
-    if (isOnPath(x, y)) {
+// =====================================================
+// TOWER INSTALL
+// =====================================================
+
+canvas.addEventListener("click", () => {
+
+    if (!gameRunning) return;
+
+    if (
+        mouseCol < 0 ||
+        mouseRow < 0 ||
+        mouseCol >= COLS ||
+        mouseRow >= ROWS
+    ) {
+        return;
+    }
+
+    // 골드 부족
+    if (gold < 40) {
+        return;
+    }
+
+    // 이동 경로인지 확인
+    if (isPathTile(mouseCol, mouseRow)) {
+        return;
+    }
+
+    // 이미 타워가 있는지 확인
+    if (hasTower(mouseCol, mouseRow)) {
         return;
     }
 
 
-    // 기존 타워와 너무 가까우면 설치 불가
-    for (const tower of towers) {
-
-        const distance = Math.hypot(
-            tower.x - x,
-            tower.y - y
-        );
-
-        if (distance < 45) {
-            return;
-        }
-    }
-
-
+    // 타워 설치
     towers.push({
-        x: x,
-        y: y,
-        range: 120,
+
+        col: mouseCol,
+        row: mouseRow,
+
+        x: mouseCol * TILE_SIZE + TILE_SIZE / 2,
+        y: mouseRow * TILE_SIZE + TILE_SIZE / 2,
+
+        range: 125,
         damage: 10,
+
         cooldown: 0,
         fireRate: 35
     });
@@ -143,85 +199,51 @@ canvas.addEventListener("click", (event) => {
 });
 
 
-/* =========================
-   PATH CHECK
-========================= */
+// =====================================================
+// PATH CHECK
+// =====================================================
 
-function isOnPath(x, y) {
+function isPathTile(col, row) {
 
-    for (let i = 0; i < path.length - 1; i++) {
-
-        const a = path[i];
-        const b = path[i + 1];
-
-        const distance = pointToLineDistance(
-            x,
-            y,
-            a.x,
-            a.y,
-            b.x,
-            b.y
-        );
-
-        if (distance < 35) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-
-function pointToLineDistance(
-    px,
-    py,
-    x1,
-    y1,
-    x2,
-    y2
-) {
-
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-
-    const lengthSquared = dx * dx + dy * dy;
-
-    if (lengthSquared === 0) {
-        return Math.hypot(px - x1, py - y1);
-    }
-
-    let t =
-        ((px - x1) * dx +
-            (py - y1) * dy) /
-        lengthSquared;
-
-    t = Math.max(0, Math.min(1, t));
-
-    const closestX = x1 + t * dx;
-    const closestY = y1 + t * dy;
-
-    return Math.hypot(
-        px - closestX,
-        py - closestY
+    return pathTiles.some(tile =>
+        tile.col === col &&
+        tile.row === row
     );
 }
 
 
-/* =========================
-   ENEMY SPAWN
-========================= */
+// =====================================================
+// TOWER CHECK
+// =====================================================
+
+function hasTower(col, row) {
+
+    return towers.some(tower =>
+        tower.col === col &&
+        tower.row === row
+    );
+}
+
+
+// =====================================================
+// ENEMY SPAWN
+// =====================================================
 
 function spawnEnemy() {
 
     if (!gameRunning) return;
 
+    const start = tileCenter(
+        pathTiles[0].col,
+        pathTiles[0].row
+    );
 
     enemies.push({
 
-        x: path[0].x,
-        y: path[0].y,
+        x: start.x,
+        y: start.y,
 
-        targetIndex: 1,
+        pathIndex: 1,
 
         hp: 30,
         maxHP: 30,
@@ -234,9 +256,9 @@ function spawnEnemy() {
 }
 
 
-/* =========================
-   ENEMY UPDATE
-========================= */
+// =====================================================
+// ENEMY UPDATE
+// =====================================================
 
 function updateEnemies() {
 
@@ -248,10 +270,38 @@ function updateEnemies() {
 
         const enemy = enemies[i];
 
-        const target =
-            path[enemy.targetIndex];
+        const targetTile =
+            pathTiles[enemy.pathIndex];
 
-        if (!target) continue;
+
+        if (!targetTile) {
+
+            baseHP -= 10;
+
+            enemies.splice(i, 1);
+
+            createHitEffect(
+                enemy.x,
+                enemy.y,
+                "#ff5252"
+            );
+
+            updateUI();
+
+
+            if (baseHP <= 0) {
+                gameOver();
+            }
+
+            continue;
+        }
+
+
+        const target =
+            tileCenter(
+                targetTile.col,
+                targetTile.row
+            );
 
 
         const dx = target.x - enemy.x;
@@ -263,33 +313,10 @@ function updateEnemies() {
 
         if (distance <= enemy.speed) {
 
-            enemy.targetIndex++;
+            enemy.x = target.x;
+            enemy.y = target.y;
 
-
-            if (
-                enemy.targetIndex >=
-                path.length
-            ) {
-
-                baseHP -= 10;
-
-                enemies.splice(i, 1);
-
-                createHitEffect(
-                    enemy.x,
-                    enemy.y,
-                    "#ff5252"
-                );
-
-                updateUI();
-
-
-                if (baseHP <= 0) {
-                    gameOver();
-                }
-
-                continue;
-            }
+            enemy.pathIndex++;
 
         } else {
 
@@ -305,9 +332,9 @@ function updateEnemies() {
 }
 
 
-/* =========================
-   TOWER UPDATE
-========================= */
+// =====================================================
+// TOWER UPDATE
+// =====================================================
 
 function updateTowers() {
 
@@ -322,11 +349,10 @@ function updateTowers() {
 
 
         let target = null;
-
         let closestDistance = Infinity;
 
 
-        for (const enemy of enemies) {
+        enemies.forEach(enemy => {
 
             const distance =
                 Math.hypot(
@@ -343,14 +369,10 @@ function updateTowers() {
                 target = enemy;
                 closestDistance = distance;
             }
-        }
+        });
 
 
         if (target) {
-
-            /*
-             * 총알 생성
-             */
 
             bullets.push({
 
@@ -372,9 +394,9 @@ function updateTowers() {
 }
 
 
-/* =========================
-   BULLET UPDATE
-========================= */
+// =====================================================
+// BULLET UPDATE
+// =====================================================
 
 function updateBullets() {
 
@@ -386,7 +408,6 @@ function updateBullets() {
 
         const bullet = bullets[i];
 
-        // 적이 죽거나 사라진 경우
         if (!enemies.includes(bullet.target)) {
 
             bullets.splice(i, 1);
@@ -397,25 +418,16 @@ function updateBullets() {
 
         const target = bullet.target;
 
-
-        const dx =
-            target.x - bullet.x;
-
-        const dy =
-            target.y - bullet.y;
+        const dx = target.x - bullet.x;
+        const dy = target.y - bullet.y;
 
         const distance =
             Math.hypot(dx, dy);
 
 
-        if (distance <= bullet.speed + 3) {
-
-            /*
-             * 총알 명중
-             */
+        if (distance <= bullet.speed + 4) {
 
             target.hp -= bullet.damage;
-
 
             createHitEffect(
                 target.x,
@@ -427,28 +439,20 @@ function updateBullets() {
             bullets.splice(i, 1);
 
 
-            /*
-             * 적 사망
-             */
-
             if (target.hp <= 0) {
 
-                const enemyIndex =
+                const index =
                     enemies.indexOf(target);
 
-                if (enemyIndex !== -1) {
+                if (index !== -1) {
 
-                    enemies.splice(
-                        enemyIndex,
-                        1
-                    );
+                    enemies.splice(index, 1);
 
                     gold += 10;
 
                     updateUI();
                 }
             }
-
 
         } else {
 
@@ -464,15 +468,11 @@ function updateBullets() {
 }
 
 
-/* =========================
-   EFFECT
-========================= */
+// =====================================================
+// EFFECTS
+// =====================================================
 
-function createHitEffect(
-    x,
-    y,
-    color
-) {
+function createHitEffect(x, y, color) {
 
     effects.push({
 
@@ -499,20 +499,20 @@ function updateEffects() {
         const effect = effects[i];
 
         effect.radius += 2;
-
         effect.alpha -= 0.08;
 
 
         if (effect.alpha <= 0) {
+
             effects.splice(i, 1);
         }
     }
 }
 
 
-/* =========================
-   DRAW
-========================= */
+// =====================================================
+// DRAW
+// =====================================================
 
 function draw() {
 
@@ -525,26 +525,19 @@ function draw() {
 
 
     drawBackground();
-
     drawPath();
-
-    drawBase();
-
-    drawTowers();
-
-    drawEnemies();
-
-    drawBullets();
-
-    drawEffects();
-
     drawTowerPreview();
+    drawTowers();
+    drawEnemies();
+    drawBullets();
+    drawEffects();
+    drawBase();
 }
 
 
-/* =========================
-   BACKGROUND
-========================= */
+// =====================================================
+// BACKGROUND + GRID
+// =====================================================
 
 function drawBackground() {
 
@@ -558,14 +551,21 @@ function drawBackground() {
     );
 
 
-    // 간단한 격자
+    // 격자
     ctx.strokeStyle =
-        "rgba(255,255,255,0.05)";
+        "rgba(255,255,255,0.16)";
 
     ctx.lineWidth = 1;
 
 
-    for (let x = 0; x < canvas.width; x += 40) {
+    for (
+        let col = 0;
+        col <= COLS;
+        col++
+    ) {
+
+        const x =
+            col * TILE_SIZE;
 
         ctx.beginPath();
 
@@ -576,7 +576,14 @@ function drawBackground() {
     }
 
 
-    for (let y = 0; y < canvas.height; y += 40) {
+    for (
+        let row = 0;
+        row <= ROWS;
+        row++
+    ) {
+
+        const y =
+            row * TILE_SIZE;
 
         ctx.beginPath();
 
@@ -588,180 +595,140 @@ function drawBackground() {
 }
 
 
-/* =========================
-   PATH
-========================= */
+// =====================================================
+// PATH
+// =====================================================
 
 function drawPath() {
 
-    ctx.beginPath();
+    pathTiles.forEach(tile => {
 
-    ctx.moveTo(
-        path[0].x,
-        path[0].y
-    );
+        const x = tile.col * TILE_SIZE;
+        const y = tile.row * TILE_SIZE;
 
 
-    for (
-        let i = 1;
-        i < path.length;
-        i++
-    ) {
+        ctx.fillStyle = "#b6a477";
+
+        ctx.fillRect(
+            x + 2,
+            y + 2,
+            TILE_SIZE - 4,
+            TILE_SIZE - 4
+        );
+
+
+        // 길 중앙선
+        ctx.strokeStyle =
+            "rgba(255,255,255,0.22)";
+
+        ctx.setLineDash([6, 6]);
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            x + 10,
+            y + TILE_SIZE / 2
+        );
 
         ctx.lineTo(
-            path[i].x,
-            path[i].y
+            x + TILE_SIZE - 10,
+            y + TILE_SIZE / 2
         );
-    }
 
+        ctx.stroke();
 
-    ctx.lineWidth = 70;
-
-    ctx.strokeStyle = "#b7a678";
-
-    ctx.lineCap = "square";
-
-    ctx.lineJoin = "round";
-
-    ctx.stroke();
-
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        path[0].x,
-        path[0].y
-    );
-
-
-    for (
-        let i = 1;
-        i < path.length;
-        i++
-    ) {
-
-        ctx.lineTo(
-            path[i].x,
-            path[i].y
-        );
-    }
-
-
-    ctx.lineWidth = 3;
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.25)";
-
-    ctx.setLineDash([10, 10]);
-
-    ctx.stroke();
-
-    ctx.setLineDash([]);
+        ctx.setLineDash([]);
+    });
 }
 
 
-/* =========================
-   BASE
-========================= */
+// =====================================================
+// TOWER PREVIEW
+// =====================================================
 
-function drawBase() {
+function drawTowerPreview() {
 
-    const base =
-        path[path.length - 1];
+    if (
+        mouseCol < 0 ||
+        mouseRow < 0 ||
+        !gameRunning
+    ) {
+        return;
+    }
 
 
-    // 외곽
-    ctx.fillStyle = "#20252d";
+    const x =
+        mouseCol * TILE_SIZE;
+
+    const y =
+        mouseRow * TILE_SIZE;
+
+
+    const canBuild =
+        !isPathTile(
+            mouseCol,
+            mouseRow
+        ) &&
+        !hasTower(
+            mouseCol,
+            mouseRow
+        ) &&
+        gold >= 40;
+
+
+    ctx.fillStyle =
+        canBuild
+            ? "rgba(80,180,255,0.28)"
+            : "rgba(255,70,70,0.28)";
+
 
     ctx.fillRect(
-        base.x - 42,
-        base.y - 42,
-        84,
-        84
+        x + 3,
+        y + 3,
+        TILE_SIZE - 6,
+        TILE_SIZE - 6
     );
 
 
-    // 본체
-    ctx.fillStyle = "#d63c3c";
+    // 설치 미리보기 타워
+    if (canBuild) {
 
-    ctx.fillRect(
-        base.x - 32,
-        base.y - 32,
-        64,
-        64
-    );
-
-
-    // 지붕
-    ctx.fillStyle = "#8e2020";
-
-    ctx.beginPath();
-
-    ctx.moveTo(
-        base.x - 38,
-        base.y - 32
-    );
-
-    ctx.lineTo(
-        base.x,
-        base.y - 55
-    );
-
-    ctx.lineTo(
-        base.x + 38,
-        base.y - 32
-    );
-
-    ctx.closePath();
-
-    ctx.fill();
+        const center =
+            tileCenter(
+                mouseCol,
+                mouseRow
+            );
 
 
-    ctx.fillStyle = "#ffffff";
+        ctx.globalAlpha = 0.55;
 
-    ctx.font =
-        "bold 12px Arial";
+        ctx.fillStyle = "#4569d4";
 
-    ctx.textAlign = "center";
-
-    ctx.fillText(
-        "BASE",
-        base.x,
-        base.y + 5
-    );
+        ctx.fillRect(
+            center.x - 13,
+            center.y - 13,
+            26,
+            26
+        );
 
 
-    // HP 바
+        ctx.fillStyle = "#9bb8ff";
 
-    const width = 70;
+        ctx.fillRect(
+            center.x - 4,
+            center.y - 27,
+            8,
+            18
+        );
 
-    ctx.fillStyle = "#222";
-
-    ctx.fillRect(
-        base.x - width / 2,
-        base.y + 50,
-        width,
-        7
-    );
-
-
-    ctx.fillStyle = "#4caf50";
-
-    ctx.fillRect(
-        base.x - width / 2,
-        base.y + 50,
-        width * Math.max(
-            0,
-            baseHP / 100
-        ),
-        7
-    );
+        ctx.globalAlpha = 1;
+    }
 }
 
 
-/* =========================
-   TOWERS
-========================= */
+// =====================================================
+// TOWERS
+// =====================================================
 
 function drawTowers() {
 
@@ -779,31 +746,7 @@ function drawTowers() {
         );
 
         ctx.fillStyle =
-            "rgba(70,120,255,0.07)";
-
-        ctx.fill();
-
-        ctx.strokeStyle =
-            "rgba(100,150,255,0.18)";
-
-        ctx.stroke();
-
-
-        // 그림자
-        ctx.fillStyle =
-            "rgba(0,0,0,0.25)";
-
-        ctx.beginPath();
-
-        ctx.ellipse(
-            tower.x,
-            tower.y + 16,
-            20,
-            7,
-            0,
-            0,
-            Math.PI * 2
-        );
+            "rgba(80,120,255,0.06)";
 
         ctx.fill();
 
@@ -816,7 +759,7 @@ function drawTowers() {
         ctx.arc(
             tower.x,
             tower.y,
-            19,
+            20,
             0,
             Math.PI * 2
         );
@@ -824,30 +767,30 @@ function drawTowers() {
         ctx.fill();
 
 
-        // 타워 본체
+        // 본체
         ctx.fillStyle = "#4569d4";
 
         ctx.fillRect(
-            tower.x - 13,
-            tower.y - 13,
-            26,
-            26
+            tower.x - 14,
+            tower.y - 14,
+            28,
+            28
         );
 
 
         // 포신
-        ctx.fillStyle = "#9bb8ff";
+        ctx.fillStyle = "#a9c0ff";
 
         ctx.fillRect(
             tower.x - 4,
             tower.y - 27,
             8,
-            18
+            17
         );
 
 
         // 중앙
-        ctx.fillStyle = "#d7e2ff";
+        ctx.fillStyle = "#e1e8ff";
 
         ctx.beginPath();
 
@@ -864,9 +807,9 @@ function drawTowers() {
 }
 
 
-/* =========================
-   ENEMIES
-========================= */
+// =====================================================
+// ENEMIES
+// =====================================================
 
 function drawEnemies() {
 
@@ -891,7 +834,7 @@ function drawEnemies() {
         ctx.fill();
 
 
-        // 적 몸체
+        // 몸체
         ctx.fillStyle = "#d93636";
 
         ctx.beginPath();
@@ -908,7 +851,7 @@ function drawEnemies() {
 
 
         // 눈
-        ctx.fillStyle = "#ffffff";
+        ctx.fillStyle = "#fff";
 
         ctx.beginPath();
 
@@ -932,7 +875,7 @@ function drawEnemies() {
 
 
         // HP 배경
-        ctx.fillStyle = "#252525";
+        ctx.fillStyle = "#222";
 
         ctx.fillRect(
             enemy.x - 18,
@@ -949,28 +892,27 @@ function drawEnemies() {
             enemy.x - 18,
             enemy.y - 27,
             36 *
-                Math.max(
-                    0,
-                    enemy.hp /
-                    enemy.maxHP
-                ),
+            Math.max(
+                0,
+                enemy.hp / enemy.maxHP
+            ),
             5
         );
     });
 }
 
 
-/* =========================
-   BULLETS
-========================= */
+// =====================================================
+// BULLETS
+// =====================================================
 
 function drawBullets() {
 
     bullets.forEach(bullet => {
 
-        // 총알 궤적
+        // 궤적
         ctx.strokeStyle =
-            "rgba(255,220,80,0.35)";
+            "rgba(255,220,80,0.4)";
 
         ctx.lineWidth = 3;
 
@@ -983,9 +925,10 @@ function drawBullets() {
 
         ctx.lineTo(
             bullet.x -
-                ((bullet.target.x - bullet.x) * 0.4),
+            (bullet.target.x - bullet.x) * 0.35,
+
             bullet.y -
-                ((bullet.target.y - bullet.y) * 0.4)
+            (bullet.target.y - bullet.y) * 0.35
         );
 
         ctx.stroke();
@@ -1026,19 +969,19 @@ function drawBullets() {
 }
 
 
-/* =========================
-   HIT EFFECT
-========================= */
+// =====================================================
+// EFFECTS
+// =====================================================
 
 function drawEffects() {
 
     effects.forEach(effect => {
 
-        ctx.strokeStyle =
-            effect.color;
-
         ctx.globalAlpha =
             effect.alpha;
+
+        ctx.strokeStyle =
+            effect.color;
 
         ctx.lineWidth = 3;
 
@@ -1059,56 +1002,112 @@ function drawEffects() {
 }
 
 
-/* =========================
-   TOWER PREVIEW
-========================= */
+// =====================================================
+// BASE
+// =====================================================
 
-function drawTowerPreview() {
+function drawBase() {
 
-    if (
-        !mouseInside ||
-        !gameRunning
-    ) {
-        return;
-    }
+    const base =
+        pathTiles[pathTiles.length - 1];
 
 
-    const valid =
-        gold >= 40 &&
-        !isOnPath(
-            mouseX,
-            mouseY
+    const center =
+        tileCenter(
+            base.col,
+            base.row
         );
 
 
-    ctx.globalAlpha = 0.35;
+    // 기지 타일
+    ctx.fillStyle = "#552b2b";
 
-    ctx.fillStyle =
-        valid
-            ? "#6da2ff"
-            : "#ff5555";
+    ctx.fillRect(
+        base.col * TILE_SIZE + 2,
+        base.row * TILE_SIZE + 2,
+        TILE_SIZE - 4,
+        TILE_SIZE - 4
+    );
 
+
+    // 본체
+    ctx.fillStyle = "#d63c3c";
+
+    ctx.fillRect(
+        center.x - 24,
+        center.y - 24,
+        48,
+        48
+    );
+
+
+    // 지붕
+    ctx.fillStyle = "#8e2020";
 
     ctx.beginPath();
 
-    ctx.arc(
-        mouseX,
-        mouseY,
-        16,
-        0,
-        Math.PI * 2
+    ctx.moveTo(
+        center.x - 29,
+        center.y - 24
     );
+
+    ctx.lineTo(
+        center.x,
+        center.y - 42
+    );
+
+    ctx.lineTo(
+        center.x + 29,
+        center.y - 24
+    );
+
+    ctx.closePath();
 
     ctx.fill();
 
 
-    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#fff";
+
+    ctx.font =
+        "bold 10px Arial";
+
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "BASE",
+        center.x,
+        center.y + 4
+    );
+
+
+    // HP
+    ctx.fillStyle = "#222";
+
+    ctx.fillRect(
+        center.x - 25,
+        center.y + 31,
+        50,
+        5
+    );
+
+
+    ctx.fillStyle = "#4caf50";
+
+    ctx.fillRect(
+        center.x - 25,
+        center.y + 31,
+        50 * Math.max(
+            0,
+            baseHP / 100
+        ),
+        5
+    );
 }
 
 
-/* =========================
-   UI
-========================= */
+// =====================================================
+// UI
+// =====================================================
 
 function updateUI() {
 
@@ -1123,18 +1122,16 @@ function updateUI() {
 }
 
 
-/* =========================
-   GAME OVER
-========================= */
+// =====================================================
+// GAME OVER
+// =====================================================
 
 function gameOver() {
 
     gameRunning = false;
 
     startButton.disabled = false;
-
-    startButton.textContent =
-        "RESTART";
+    startButton.textContent = "RESTART";
 
 
     setTimeout(() => {
@@ -1147,9 +1144,9 @@ function gameOver() {
 }
 
 
-/* =========================
-   GAME LOOP
-========================= */
+// =====================================================
+// GAME LOOP
+// =====================================================
 
 function gameLoop() {
 
@@ -1162,26 +1159,19 @@ function gameLoop() {
 
 
     updateEnemies();
-
     updateTowers();
-
     updateBullets();
-
     updateEffects();
 
     draw();
 
-
-    requestAnimationFrame(
-        gameLoop
-    );
+    requestAnimationFrame(gameLoop);
 }
 
 
-/* =========================
-   INITIAL
-========================= */
+// =====================================================
+// INITIAL DRAW
+// =====================================================
 
 updateUI();
-
 draw();
