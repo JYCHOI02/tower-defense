@@ -72,28 +72,20 @@ let selectedTower = null;
 
 const TOWER_COST = 40;
 
+// 모든 타워의 설치 가격은 동일합니다.
+const towerTypes = {
+    basic:  { name: "BASIC",  damage: 1.00, range: 1.00, fireRate: 1.00, splash: 0 },
+    cannon: { name: "CANNON", damage: 1.80, range: 0.90, fireRate: 1.45, splash: 0 },
+    splash: { name: "SPLASH", damage: 0.75, range: 0.95, fireRate: 1.15, splash: 48 }
+};
+
+let selectedTowerType = "basic";
+
 const towerLevels = {
 
-    1: {
-        damage: 10,
-        range: 125,
-        fireRate: 35,
-        upgradeCost: 60
-    },
-
-    2: {
-        damage: 18,
-        range: 140,
-        fireRate: 28,
-        upgradeCost: 120
-    },
-
-    3: {
-        damage: 30,
-        range: 160,
-        fireRate: 20,
-        upgradeCost: 0
-    }
+    1: { damage: 10, range: 125, fireRate: 35, upgradeCost: 60 },
+    2: { damage: 18, range: 140, fireRate: 28, upgradeCost: 120 },
+    3: { damage: 30, range: 160, fireRate: 20, upgradeCost: 0 }
 };
 
 
@@ -172,6 +164,7 @@ function startGame() {
 
     selectedTower = null;
     hoveredTower = null;
+    selectedTowerType = "basic";
 
     startButton.disabled = true;
     startButton.textContent = "RUNNING";
@@ -351,6 +344,37 @@ canvas.addEventListener("click", (event) => {
     if (!gameRunning) return;
 
     // =================================================
+    // 타워 종류 선택
+    // =================================================
+
+    if (gameState === "playing") {
+
+        const selectorY = canvas.height - 72;
+        const buttonWidth = 125;
+        const gap = 10;
+        const totalWidth = buttonWidth * 3 + gap * 2;
+        const startX = (canvas.width - totalWidth) / 2;
+        const types = ["basic", "cannon", "splash"];
+
+        for (let i = 0; i < types.length; i++) {
+
+            const bx = startX + i * (buttonWidth + gap);
+
+            if (
+                x >= bx &&
+                x <= bx + buttonWidth &&
+                y >= selectorY &&
+                y <= selectorY + 48
+            ) {
+                selectedTowerType = types[i];
+                selectedTower = null;
+                return;
+            }
+        }
+    }
+
+
+    // =================================================
     // 1. 업그레이드 패널 닫기 / 버튼 확인
     // =================================================
 
@@ -495,6 +519,8 @@ canvas.addEventListener("click", (event) => {
         tileCenter(col, row);
 
 
+    const towerType = towerTypes[selectedTowerType];
+
     towers.push({
 
         col: col,
@@ -503,16 +529,24 @@ canvas.addEventListener("click", (event) => {
         x: center.x,
         y: center.y,
 
+        type: selectedTowerType,
+
         level: 1,
 
         damage:
-            towerLevels[1].damage,
+            towerLevels[1].damage *
+            towerType.damage,
 
         range:
-            towerLevels[1].range,
+            towerLevels[1].range *
+            towerType.range,
 
         fireRate:
-            towerLevels[1].fireRate,
+            towerLevels[1].fireRate *
+            towerType.fireRate,
+
+        splashRadius:
+            towerType.splash,
 
         cooldown: 0
     });
@@ -571,14 +605,23 @@ function upgradeTower(tower) {
 
 
     // 능력치 변경
+    const towerType =
+        towerTypes[tower.type || "basic"];
+
     tower.damage =
-        towerLevels[nextLevel].damage;
+        towerLevels[nextLevel].damage *
+        towerType.damage;
 
     tower.range =
-        towerLevels[nextLevel].range;
+        towerLevels[nextLevel].range *
+        towerType.range;
 
     tower.fireRate =
-        towerLevels[nextLevel].fireRate;
+        towerLevels[nextLevel].fireRate *
+        towerType.fireRate;
+
+    tower.splashRadius =
+        towerType.splash;
 
 
     // 업그레이드 효과
@@ -808,9 +851,17 @@ function updateTowers() {
 
                 target: target,
 
-                speed: 7,
+                speed:
+                    tower.type === "cannon"
+                        ? 6
+                        : 7,
 
-                damage: tower.damage
+                damage: tower.damage,
+
+                type: tower.type || "basic",
+
+                splashRadius:
+                    tower.splashRadius || 0
             });
 
 
@@ -872,46 +923,72 @@ function updateBullets() {
             target.hp -=
                 bullet.damage;
 
-
             createHitEffect(
                 target.x,
                 target.y,
-                "#ffd54f"
+                bullet.type === "cannon"
+                    ? "#ff9f43"
+                    : bullet.type === "splash"
+                        ? "#b983ff"
+                        : "#ffd54f"
             );
 
+            if (
+                bullet.type === "splash" &&
+                bullet.splashRadius > 0
+            ) {
+
+                enemies.forEach(enemy => {
+
+                    if (enemy === target) return;
+
+                    const distance =
+                        Math.hypot(
+                            enemy.x - target.x,
+                            enemy.y - target.y
+                        );
+
+                    if (distance <= bullet.splashRadius) {
+
+                        enemy.hp -=
+                            bullet.damage * 0.6;
+
+                        createHitEffect(
+                            enemy.x,
+                            enemy.y,
+                            "#b983ff"
+                        );
+                    }
+                });
+            }
 
             bullets.splice(i, 1);
 
+            for (
+                let enemyIndex = enemies.length - 1;
+                enemyIndex >= 0;
+                enemyIndex--
+            ) {
 
-            // 몬스터 사망
-            if (target.hp <= 0) {
+                const enemy = enemies[enemyIndex];
 
-                const index =
-                    enemies.indexOf(target);
-
-
-                if (index !== -1) {
+                if (enemy.hp <= 0) {
 
                     enemies.splice(
-                        index,
+                        enemyIndex,
                         1
                     );
 
-
                     enemiesDefeated++;
-
                     gold += 10;
-
-                    updateUI();
-
-
-                    if (
-                        enemiesDefeated >= WIN_KILLS
-                    ) {
-                        gameClear();
-                        return;
-                    }
                 }
+            }
+
+            updateUI();
+
+            if (enemiesDefeated >= WIN_KILLS) {
+                gameClear();
+                return;
             }
 
         } else {
@@ -1033,6 +1110,8 @@ function draw() {
     drawEffects();
 
     drawBase();
+
+    drawTowerSelector();
 
     drawUpgradePanel();
 
@@ -1543,6 +1622,34 @@ function drawTowers() {
         // 타워 본체
         // ---------------------------------------------
 
+        if (tower.type === "cannon") {
+
+            ctx.fillStyle =
+                tower.level === 1
+                    ? "#b85c45"
+                    : tower.level === 2
+                        ? "#c96e4e"
+                        : "#e0a13c";
+
+        } else if (tower.type === "splash") {
+
+            ctx.fillStyle =
+                tower.level === 1
+                    ? "#7d5ab8"
+                    : tower.level === 2
+                        ? "#9369d0"
+                        : "#d49a35";
+
+        } else {
+
+            ctx.fillStyle =
+                tower.level === 1
+                    ? "#4569d4"
+                    : tower.level === 2
+                        ? "#6355d9"
+                        : "#d49a35";
+        }
+
         ctx.fillRect(
             tower.x - 14,
             tower.y - 14,
@@ -1552,19 +1659,47 @@ function drawTowers() {
 
 
         // ---------------------------------------------
-        // 포신
+        // 포신 / 특수 장치
         // ---------------------------------------------
 
-        ctx.fillStyle =
-            "#a9c0ff";
+        if (tower.type === "cannon") {
 
+            ctx.fillStyle = "#ffd0a8";
 
-        ctx.fillRect(
-            tower.x - 4,
-            tower.y - 27,
-            8,
-            17
-        );
+            ctx.fillRect(
+                tower.x - 7,
+                tower.y - 28,
+                14,
+                20
+            );
+
+        } else if (tower.type === "splash") {
+
+            ctx.fillStyle = "#e0c8ff";
+
+            ctx.beginPath();
+
+            ctx.arc(
+                tower.x,
+                tower.y - 10,
+                10,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+        } else {
+
+            ctx.fillStyle = "#a9c0ff";
+
+            ctx.fillRect(
+                tower.x - 4,
+                tower.y - 27,
+                8,
+                17
+            );
+        }
 
 
         // ---------------------------------------------
@@ -1628,6 +1763,84 @@ function drawTowers() {
                 tower.y - 32
             );
         }
+    });
+}
+
+
+// =====================================================
+// TOWER TYPE SELECTOR
+// =====================================================
+
+function drawTowerSelector() {
+
+    if (gameState !== "playing") return;
+
+    const y = canvas.height - 72;
+    const width = 125;
+    const height = 48;
+    const gap = 10;
+    const total = width * 3 + gap * 2;
+    const startX = (canvas.width - total) / 2;
+
+    const types = [
+        ["basic", "BASIC"],
+        ["cannon", "CANNON"],
+        ["splash", "SPLASH"]
+    ];
+
+    types.forEach((item, i) => {
+
+        const x =
+            startX + i * (width + gap);
+
+        const selected =
+            selectedTowerType === item[0];
+
+        ctx.fillStyle =
+            selected
+                ? "rgba(75,125,210,0.98)"
+                : "rgba(25,30,38,0.94)";
+
+        ctx.fillRect(
+            x,
+            y,
+            width,
+            height
+        );
+
+        ctx.strokeStyle =
+            selected
+                ? "rgba(170,220,255,0.95)"
+                : "rgba(255,255,255,0.2)";
+
+        ctx.lineWidth =
+            selected ? 2 : 1;
+
+        ctx.strokeRect(
+            x,
+            y,
+            width,
+            height
+        );
+
+        ctx.fillStyle = "#ffffff";
+        ctx.font = "bold 12px Arial";
+        ctx.textAlign = "center";
+
+        ctx.fillText(
+            item[1],
+            x + width / 2,
+            y + 20
+        );
+
+        ctx.fillStyle = "#bfc8d8";
+        ctx.font = "11px Arial";
+
+        ctx.fillText(
+            TOWER_COST + " GOLD",
+            x + width / 2,
+            y + 37
+        );
     });
 }
 
@@ -1701,8 +1914,11 @@ function drawUpgradePanel() {
         "left";
 
 
+    const selectedType =
+        towerTypes[selectedTower.type || "basic"];
+
     ctx.fillText(
-        "TOWER",
+        selectedType.name + " TOWER",
         panelX + 15,
         panelY + 25
     );
@@ -2073,7 +2289,11 @@ function drawBullets() {
         // 총알
 
         ctx.fillStyle =
-            "#ffe066";
+            bullet.type === "cannon"
+                ? "#ff9f43"
+                : bullet.type === "splash"
+                    ? "#c792ff"
+                    : "#ffe066";
 
 
         ctx.beginPath();
