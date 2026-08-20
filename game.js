@@ -544,7 +544,6 @@ function draw() {
 
 function drawBackground() {
 
-    // 맵 전체 배경
     ctx.fillStyle = "#6f9d52";
 
     ctx.fillRect(
@@ -565,106 +564,76 @@ function drawPath() {
 
     ctx.save();
 
-    // ==========================================
-    // 길 외곽
-    // ==========================================
-
+    // 길의 외곽
     ctx.strokeStyle = "#8d7a52";
-    ctx.lineWidth = TILE_SIZE + 4;
+    ctx.lineWidth = TILE_SIZE + 6;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
     ctx.beginPath();
 
-    let first = tileCenter(
+    let start = tileCenter(
         pathTiles[0].col,
         pathTiles[0].row
     );
 
-    ctx.moveTo(first.x, first.y);
+    ctx.moveTo(start.x, start.y);
 
     for (let i = 1; i < pathTiles.length; i++) {
 
-        const tile = pathTiles[i];
-
-        const center = tileCenter(
-            tile.col,
-            tile.row
+        const point = tileCenter(
+            pathTiles[i].col,
+            pathTiles[i].row
         );
 
-        ctx.lineTo(
-            center.x,
-            center.y
-        );
+        ctx.lineTo(point.x, point.y);
     }
 
     ctx.stroke();
 
 
-    // ==========================================
     // 실제 길
-    // ==========================================
-
     ctx.strokeStyle = "#b6a477";
-
-    // ★ TILE_SIZE와 동일하게 해서 틈이 생기지 않도록 함
     ctx.lineWidth = TILE_SIZE;
-
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
     ctx.beginPath();
 
-    ctx.moveTo(first.x, first.y);
+    ctx.moveTo(start.x, start.y);
 
     for (let i = 1; i < pathTiles.length; i++) {
 
-        const tile = pathTiles[i];
-
-        const center = tileCenter(
-            tile.col,
-            tile.row
+        const point = tileCenter(
+            pathTiles[i].col,
+            pathTiles[i].row
         );
 
-        ctx.lineTo(
-            center.x,
-            center.y
-        );
+        ctx.lineTo(point.x, point.y);
     }
 
     ctx.stroke();
 
 
-    // ==========================================
-    // 길 중앙의 장식
-    // ==========================================
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.16)";
-
+    // 길 중앙 장식
+    ctx.strokeStyle = "rgba(255,255,255,0.15)";
     ctx.lineWidth = 2;
-
     ctx.lineCap = "round";
 
-    ctx.setLineDash([7, 9]);
+    ctx.setLineDash([8, 10]);
 
     ctx.beginPath();
 
-    ctx.moveTo(first.x, first.y);
+    ctx.moveTo(start.x, start.y);
 
     for (let i = 1; i < pathTiles.length; i++) {
 
-        const tile = pathTiles[i];
-
-        const center = tileCenter(
-            tile.col,
-            tile.row
+        const point = tileCenter(
+            pathTiles[i].col,
+            pathTiles[i].row
         );
 
-        ctx.lineTo(
-            center.x,
-            center.y
-        );
+        ctx.lineTo(point.x, point.y);
     }
 
     ctx.stroke();
