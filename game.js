@@ -37,8 +37,14 @@ let gameRunning = false;
 let gameState = "menu"; // menu / howto / playing / ended
 let gameResult = null;  // clear / gameover
 let enemiesDefeated = 0;
+let waveEnemiesSpawned = 0;
+let waveEnemiesDefeated = 0;
+let waveActive = false;
+let waveClearTimer = null;
+let spawnTimer = null;
 
-const WIN_KILLS = 20;
+const TOTAL_WAVES = 5;
+const WAVE_ENEMIES = [5, 7, 9, 12, 15];
 
 let baseHP = 100;
 let gold = 100;
@@ -152,6 +158,20 @@ function startGame() {
     gameState = "playing";
     gameResult = null;
     enemiesDefeated = 0;
+    wave = 1;
+    waveEnemiesSpawned = 0;
+    waveEnemiesDefeated = 0;
+    waveActive = false;
+
+    if (spawnTimer) {
+        clearTimeout(spawnTimer);
+        spawnTimer = null;
+    }
+
+    if (waveClearTimer) {
+        clearTimeout(waveClearTimer);
+        waveClearTimer = null;
+    }
 
     baseHP = 100;
     gold = 100;
@@ -171,7 +191,7 @@ function startGame() {
 
     updateUI();
 
-    spawnEnemy();
+    startWave();
 
     requestAnimationFrame(gameLoop);
 }
@@ -667,10 +687,50 @@ function hasTower(col, row) {
 // ENEMY SPAWN
 // =====================================================
 
+function getEnemyStats() {
+
+    // 후반 웨이브일수록 빠른 몬스터가 섞여 나옵니다.
+    const fastChance =
+        wave <= 2
+            ? 0
+            : wave === 3
+                ? 0.20
+                : wave === 4
+                    ? 0.35
+                    : 0.50;
+
+    const isFast =
+        Math.random() < fastChance;
+
+    if (isFast) {
+
+        return {
+            hp: 24 + wave * 5,
+            maxHP: 24 + wave * 5,
+            speed: 1.8 + wave * 0.12,
+            type: "fast"
+        };
+    }
+
+    return {
+        hp: 30 + wave * 7,
+        maxHP: 30 + wave * 7,
+        speed: 1.0 + wave * 0.05,
+        type: "normal"
+    };
+}
+
+
 function spawnEnemy() {
 
-    if (!gameRunning) {
+    if (!gameRunning || !waveActive) {
+        return;
+    }
 
+    if (
+        waveEnemiesSpawned >=
+        WAVE_ENEMIES[wave - 1]
+    ) {
         return;
     }
 
@@ -681,6 +741,9 @@ function spawnEnemy() {
             pathTiles[0].row
         );
 
+    const stats =
+        getEnemyStats();
+
 
     enemies.push({
 
@@ -689,17 +752,110 @@ function spawnEnemy() {
 
         pathIndex: 1,
 
-        hp: 30,
-        maxHP: 30,
+        hp: stats.hp,
+        maxHP: stats.maxHP,
 
-        speed: 1
+        speed: stats.speed,
+
+        type: stats.type
     });
 
 
-    setTimeout(
-        spawnEnemy,
-        1400
-    );
+    waveEnemiesSpawned++;
+
+
+    // 후반 웨이브는 적 사이의 간격을 조금 줄여
+    // 뭉쳐서 등장하는 구간이 생기도록 합니다.
+    const spawnDelay =
+        wave === 1
+            ? 1000
+            : wave === 2
+                ? 800
+                : wave === 3
+                    ? 600
+                    : wave === 4
+                        ? 480
+                        : 380;
+
+
+    if (
+        waveEnemiesSpawned <
+        WAVE_ENEMIES[wave - 1]
+    ) {
+
+        spawnTimer =
+            setTimeout(
+                spawnEnemy,
+                spawnDelay
+            );
+
+    } else {
+
+        spawnTimer = null;
+    }
+}
+
+
+function startWave() {
+
+    if (!gameRunning) {
+        return;
+    }
+
+
+    waveActive = true;
+
+    waveEnemiesSpawned = 0;
+    waveEnemiesDefeated = 0;
+
+
+    updateUI();
+
+
+    // 한 번에 2~3마리가 나오는 웨이브 구간을 추가합니다.
+    // 실제 몬스터 간격도 짧게 설정되어 자연스럽게 뭉칩니다.
+    spawnEnemy();
+}
+
+
+function checkWaveClear() {
+
+    if (!gameRunning || !waveActive) {
+        return;
+    }
+
+
+    const targetCount =
+        WAVE_ENEMIES[wave - 1];
+
+
+    if (
+        waveEnemiesSpawned >= targetCount &&
+        enemies.length === 0
+    ) {
+
+        waveActive = false;
+
+
+        if (wave >= TOTAL_WAVES) {
+
+            gameClear();
+            return;
+        }
+
+
+        waveClearTimer =
+            setTimeout(() => {
+
+                if (!gameRunning) {
+                    return;
+                }
+
+                wave++;
+                startWave();
+
+            }, 1800);
+    }
 }
 
 
@@ -985,13 +1141,7 @@ function updateBullets() {
             }
 
             updateUI();
-
-            if (enemiesDefeated >= WIN_KILLS) {
-                gameClear();
-                return;
-            }
-
-        } else {
+} else {
 
             bullet.x +=
                 (dx / distance)
@@ -1110,6 +1260,8 @@ function draw() {
     drawEffects();
 
     drawBase();
+
+    drawWaveStatus();
 
     drawTowerSelector();
 
@@ -1846,6 +1998,56 @@ function drawTowerSelector() {
 
 
 // =====================================================
+// WAVE STATUS
+// =====================================================
+
+function drawWaveStatus() {
+
+    if (gameState !== "playing") {
+        return;
+    }
+
+    const total =
+        WAVE_ENEMIES[wave - 1];
+
+    ctx.fillStyle =
+        "rgba(15,20,28,0.72)";
+
+    ctx.fillRect(
+        15,
+        15,
+        190,
+        45
+    );
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "left";
+
+    ctx.fillText(
+        "WAVE " + wave + " / " + TOTAL_WAVES,
+        28,
+        35
+    );
+
+    ctx.fillStyle = "#b8c0cc";
+    ctx.font = "11px Arial";
+
+    ctx.fillText(
+        "Enemies: " +
+        Math.min(
+            waveEnemiesSpawned,
+            total
+        ) +
+        " / " +
+        total,
+        28,
+        51
+    );
+}
+
+
+// =====================================================
 // UPGRADE PANEL
 // =====================================================
 
@@ -2164,7 +2366,9 @@ function drawEnemies() {
         // 몬스터
 
         ctx.fillStyle =
-            "#d93636";
+            enemy.type === "fast"
+                ? "#ff8a3d"
+                : "#d93636";
 
 
         ctx.beginPath();
@@ -2516,7 +2720,9 @@ function updateUI() {
 
 
     waveText.textContent =
-        wave;
+        wave +
+        " / " +
+        TOTAL_WAVES;
 }
 
 
@@ -2527,6 +2733,17 @@ function updateUI() {
 function gameClear() {
 
     gameRunning = false;
+    waveActive = false;
+
+    if (spawnTimer) {
+        clearTimeout(spawnTimer);
+        spawnTimer = null;
+    }
+
+    if (waveClearTimer) {
+        clearTimeout(waveClearTimer);
+        waveClearTimer = null;
+    }
     gameState = "ended";
     gameResult = "clear";
     selectedTower = null;
@@ -2538,6 +2755,17 @@ function gameClear() {
 function gameOver() {
 
     gameRunning = false;
+    waveActive = false;
+
+    if (spawnTimer) {
+        clearTimeout(spawnTimer);
+        spawnTimer = null;
+    }
+
+    if (waveClearTimer) {
+        clearTimeout(waveClearTimer);
+        waveClearTimer = null;
+    }
     gameState = "ended";
     gameResult = "gameover";
     selectedTower = null;
@@ -2870,6 +3098,8 @@ function gameLoop() {
     updateBullets();
 
     updateEffects();
+
+    checkWaveClear();
 
     draw();
 
