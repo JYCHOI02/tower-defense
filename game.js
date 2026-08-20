@@ -38,6 +38,11 @@ let baseHP = 100;
 let gold = 100;
 let wave = 1;
 
+let gameEnded = false;
+let gameResult = "";
+let enemiesDefeated = 0;
+const CLEAR_KILLS = 20;
+
 
 // =====================================================
 // OBJECTS
@@ -147,10 +152,13 @@ startButton.addEventListener("click", startGame);
 function startGame() {
 
     gameRunning = true;
+    gameEnded = false;
+    gameResult = "";
 
     baseHP = 100;
     gold = 100;
     wave = 1;
+    enemiesDefeated = 0;
 
     towers.length = 0;
     enemies.length = 0;
@@ -232,9 +240,6 @@ canvas.addEventListener("mouseleave", () => {
 
 canvas.addEventListener("click", (event) => {
 
-    if (!gameRunning) return;
-
-
     const rect = canvas.getBoundingClientRect();
 
     const x =
@@ -245,47 +250,53 @@ canvas.addEventListener("click", (event) => {
         (event.clientY - rect.top)
         * (canvas.height / rect.height);
 
+    if (gameEnded) {
+
+        const centerX = canvas.width / 2;
+        const buttonY = canvas.height / 2 + 65;
+        const buttonWidth = 170;
+        const buttonHeight = 48;
+        const gap = 20;
+        const homeX = centerX - buttonWidth - gap / 2;
+        const restartX = centerX + gap / 2;
+
+        if (x >= homeX && x <= homeX + buttonWidth && y >= buttonY && y <= buttonY + buttonHeight) {
+            window.location.reload();
+            return;
+        }
+
+        if (x >= restartX && x <= restartX + buttonWidth && y >= buttonY && y <= buttonY + buttonHeight) {
+            startGame();
+            return;
+        }
+
+        return;
+    }
+
+    if (!gameRunning) return;
 
     // =================================================
-    // 1. 업그레이드 패널 닫기 버튼
+    // 1. 업그레이드 버튼 확인
     // =================================================
 
     if (selectedTower) {
 
-        const panelWidth = 215;
+        const panelWidth = 250;
+
         const panelX =
             canvas.width - panelWidth - 15;
+
         const panelY = 15;
 
-        const closeX = panelX + 175;
-        const closeY = panelY + 8;
-        const closeWidth = 25;
-        const closeHeight = 25;
+        const closeX = panelX + panelWidth - 40;
+        const closeY = panelY + 10;
+        const closeWidth = 28;
+        const closeHeight = 28;
 
-        if (
-            x >= closeX &&
-            x <= closeX + closeWidth &&
-            y >= closeY &&
-            y <= closeY + closeHeight
-        ) {
+        if (x >= closeX && x <= closeX + closeWidth && y >= closeY && y <= closeY + closeHeight) {
             selectedTower = null;
             return;
         }
-    }
-
-
-    // =================================================
-    // 2. 업그레이드 버튼 확인
-    // =================================================
-
-    if (selectedTower) {
-
-        const panelWidth = 215;
-
-        const panelX =
-            canvas.width - panelWidth - 15;
-
-        const panelY = 15;
 
         const buttonX =
             panelX + 15;
@@ -293,7 +304,7 @@ canvas.addEventListener("click", (event) => {
         const buttonY =
             panelY + 145;
 
-        const buttonWidth = 185;
+        const buttonWidth = 220;
         const buttonHeight = 40;
 
 
@@ -806,10 +817,14 @@ function updateBullets() {
                         1
                     );
 
-
+                    enemiesDefeated++;
                     gold += 10;
-
                     updateUI();
+
+                    if (enemiesDefeated >= CLEAR_KILLS) {
+                        gameClear();
+                        return;
+                    }
                 }
             }
 
@@ -934,6 +949,10 @@ function draw() {
     drawBase();
 
     drawUpgradePanel();
+
+    if (gameEnded) {
+        drawEndScreen();
+    }
 }
 
 
@@ -1525,289 +1544,83 @@ function drawTowers() {
 
 function drawUpgradePanel() {
 
-    if (!selectedTower) {
+    if (!selectedTower) return;
 
-        return;
-    }
-
-
-    const panelWidth = 215;
+    const panelWidth = 250;
     const panelHeight = 205;
-
-
-    const panelX =
-        canvas.width -
-        panelWidth -
-        15;
-
-
+    const panelX = canvas.width - panelWidth - 15;
     const panelY = 15;
 
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(panelX, panelY, panelWidth, panelHeight);
+    ctx.clip();
 
-    // ---------------------------------------------
-    // 패널
-    // ---------------------------------------------
+    ctx.fillStyle = "rgba(25,30,38,0.96)";
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
 
-    ctx.fillStyle =
-        "rgba(25,30,38,0.96)";
-
-
-    ctx.fillRect(
-        panelX,
-        panelY,
-        panelWidth,
-        panelHeight
-    );
-
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.2)";
-
+    ctx.strokeStyle = "rgba(255,255,255,0.2)";
     ctx.lineWidth = 1;
+    ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
 
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 17px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("TOWER", panelX + 15, panelY + 25);
 
-    ctx.strokeRect(
-        panelX,
-        panelY,
-        panelWidth,
-        panelHeight
-    );
+    ctx.fillStyle = "rgba(255,255,255,0.08)";
+    ctx.fillRect(panelX + panelWidth - 40, panelY + 10, 28, 28);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 18px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("×", panelX + panelWidth - 26, panelY + 30);
 
+    ctx.fillStyle = "#8ed8ff";
+    ctx.font = "bold 14px Arial";
+    ctx.textAlign = "left";
+    ctx.fillText("LEVEL " + selectedTower.level, panelX + 15, panelY + 48);
 
-    // ---------------------------------------------
-    // 제목
-    // ---------------------------------------------
+    ctx.fillStyle = "#dddddd";
+    ctx.font = "13px Arial";
+    ctx.fillText("Damage: " + selectedTower.damage, panelX + 15, panelY + 73);
+    ctx.fillText("Range: " + selectedTower.range, panelX + 130, panelY + 73);
+    ctx.fillText("Attack Speed: " + selectedTower.fireRate, panelX + 15, panelY + 95);
 
-    ctx.fillStyle =
-        "#ffffff";
+    ctx.fillStyle = "#999999";
+    ctx.font = "11px Arial";
+    ctx.fillText("Upgrade this tower", panelX + 15, panelY + 125);
 
-    ctx.font =
-        "bold 17px Arial";
-
-    ctx.textAlign =
-        "left";
-
-
-    ctx.fillText(
-        "TOWER",
-        panelX + 15,
-        panelY + 25
-    );
-
-
-    // ---------------------------------------------
-    // 닫기 버튼
-    // ---------------------------------------------
-
-    ctx.fillStyle =
-        "rgba(255,255,255,0.08)";
-
-    ctx.fillRect(
-        panelX + 175,
-        panelY + 8,
-        25,
-        25
-    );
-
-    ctx.fillStyle =
-        "#ffffff";
-
-    ctx.font =
-        "bold 17px Arial";
-
-    ctx.textAlign =
-        "center";
-
-    ctx.fillText(
-        "×",
-        panelX + 187.5,
-        panelY + 26
-    );
-
-
-    // ---------------------------------------------
-    // 레벨
-    // ---------------------------------------------
-
-    ctx.fillStyle =
-        "#8ed8ff";
-
-    ctx.font =
-        "bold 14px Arial";
-
-
-    ctx.fillText(
-        "LEVEL " +
-        selectedTower.level,
-        panelX + 15,
-        panelY + 48
-    );
-
-
-    // ---------------------------------------------
-    // 스탯
-    // ---------------------------------------------
-
-    ctx.fillStyle =
-        "#dddddd";
-
-    ctx.font =
-        "13px Arial";
-
-
-    ctx.fillText(
-        "Damage: " +
-        selectedTower.damage,
-        panelX + 15,
-        panelY + 73
-    );
-
-
-    ctx.fillText(
-        "Range: " +
-        selectedTower.range,
-        panelX + 105,
-        panelY + 73
-    );
-
-
-    ctx.fillText(
-        "Attack Speed: " +
-        selectedTower.fireRate,
-        panelX + 15,
-        panelY + 95
-    );
-
-
-    // ---------------------------------------------
-    // 안내 문구
-    // ---------------------------------------------
-
-    ctx.fillStyle =
-        "#999999";
-
-    ctx.font =
-        "11px Arial";
-
-
-    ctx.fillText(
-        "Upgrade this tower",
-        panelX + 15,
-        panelY + 125
-    );
-
-
-    // ---------------------------------------------
-    // 업그레이드 버튼
-    // ---------------------------------------------
-
-    const buttonX =
-        panelX + 15;
-
-    const buttonY =
-        panelY + 145;
-
-    const buttonWidth = 185;
+    const buttonX = panelX + 15;
+    const buttonY = panelY + 145;
+    const buttonWidth = 220;
     const buttonHeight = 40;
 
-
     let buttonColor;
-
-
-    if (
-        selectedTower.level >= 3
-    ) {
-
-        buttonColor =
-            "#555b63";
-
+    if (selectedTower.level >= 3) {
+        buttonColor = "#555b63";
     } else {
-
-        const cost =
-            towerLevels[
-                selectedTower.level
-            ].upgradeCost;
-
-
-        buttonColor =
-            gold >= cost
-                ? "#3c9b68"
-                : "#754747";
+        const cost = towerLevels[selectedTower.level].upgradeCost;
+        buttonColor = gold >= cost ? "#3c9b68" : "#754747";
     }
 
+    ctx.fillStyle = buttonColor;
+    ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight);
 
-    ctx.fillStyle =
-        buttonColor;
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 13px Arial";
 
-
-    ctx.fillRect(
-        buttonX,
-        buttonY,
-        buttonWidth,
-        buttonHeight
-    );
-
-
-    ctx.strokeStyle =
-        "rgba(255,255,255,0.25)";
-
-
-    ctx.strokeRect(
-        buttonX,
-        buttonY,
-        buttonWidth,
-        buttonHeight
-    );
-
-
-    ctx.textAlign =
-        "center";
-
-
-    if (
-        selectedTower.level >= 3
-    ) {
-
-        ctx.fillStyle =
-            "#dddddd";
-
-        ctx.font =
-            "bold 13px Arial";
-
-
-        ctx.fillText(
-            "MAX LEVEL",
-            buttonX +
-            buttonWidth / 2,
-            buttonY + 25
-        );
-
+    if (selectedTower.level >= 3) {
+        ctx.fillText("MAX LEVEL", buttonX + buttonWidth / 2, buttonY + 25);
     } else {
-
-        const cost =
-            towerLevels[
-                selectedTower.level
-            ].upgradeCost;
-
-
-        ctx.fillStyle =
-            "#ffffff";
-
-        ctx.font =
-            "bold 13px Arial";
-
-
-        ctx.fillText(
-            "UPGRADE  •  " +
-            cost +
-            " GOLD",
-            buttonX +
-            buttonWidth / 2,
-            buttonY + 25
-        );
+        const cost = towerLevels[selectedTower.level].upgradeCost;
+        ctx.fillText("UPGRADE  •  " + cost + " GOLD", buttonX + buttonWidth / 2, buttonY + 25);
     }
+
+    ctx.restore();
 }
-
 
 // =====================================================
 // ENEMY DRAW
@@ -2199,27 +2012,74 @@ function updateUI() {
 // =====================================================
 
 function gameOver() {
-
-    gameRunning = false;
-
-    selectedTower = null;
-
-    startButton.disabled =
-        false;
-
-    startButton.textContent =
-        "RESTART";
-
-
-    setTimeout(() => {
-
-        alert(
-            "GAME OVER\n\n기지가 파괴되었습니다."
-        );
-
-    }, 100);
+    endGame("GAME OVER", "기지가 파괴되었습니다.");
 }
 
+function gameClear() {
+    endGame("CLEAR!", "기지를 지켜냈습니다.");
+}
+
+function endGame(title, message) {
+    gameRunning = false;
+    gameEnded = true;
+    gameResult = message;
+    selectedTower = null;
+    hoveredTower = null;
+    startButton.disabled = false;
+    startButton.textContent = "RESTART";
+    draw();
+}
+
+function drawEndScreen() {
+
+    ctx.save();
+    ctx.fillStyle = "rgba(0,0,0,0.62)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const panelWidth = 500;
+    const panelHeight = 250;
+    const panelX = centerX - panelWidth / 2;
+    const panelY = centerY - panelHeight / 2;
+
+    ctx.fillStyle = "rgba(25,30,38,0.98)";
+    ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = gameResult === "기지를 지켜냈습니다." ? "#ffd54f" : "#ff6b6b";
+    ctx.font = "bold 36px Arial";
+    ctx.fillText(gameResult === "기지를 지켜냈습니다." ? "CLEAR!" : "GAME OVER", centerX, centerY - 55);
+
+    ctx.fillStyle = "#dddddd";
+    ctx.font = "16px Arial";
+    ctx.fillText(gameResult, centerX, centerY - 20);
+
+    const buttonWidth = 170;
+    const buttonHeight = 48;
+    const gap = 20;
+    const buttonY = centerY + 65;
+    const homeX = centerX - buttonWidth - gap / 2;
+    const restartX = centerX + gap / 2;
+
+    ctx.fillStyle = "#4c5663";
+    ctx.fillRect(homeX, buttonY, buttonWidth, buttonHeight);
+    ctx.fillStyle = "#3c9b68";
+    ctx.fillRect(restartX, buttonY, buttonWidth, buttonHeight);
+    ctx.strokeStyle = "rgba(255,255,255,0.25)";
+    ctx.strokeRect(homeX, buttonY, buttonWidth, buttonHeight);
+    ctx.strokeRect(restartX, buttonY, buttonWidth, buttonHeight);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 15px Arial";
+    ctx.fillText("시작화면", homeX + buttonWidth / 2, buttonY + 30);
+    ctx.fillText("재시작", restartX + buttonWidth / 2, buttonY + 30);
+
+    ctx.restore();
+}
 
 // =====================================================
 // GAME LOOP
