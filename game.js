@@ -544,6 +544,7 @@ function draw() {
 
 function drawBackground() {
 
+    // 맵 전체 배경
     ctx.fillStyle = "#6f9d52";
 
     ctx.fillRect(
@@ -552,23 +553,7 @@ function drawBackground() {
         canvas.width,
         canvas.height
     );
-
-    pathTiles.forEach(tile => {
-
-        const x = tile.col * TILE_SIZE;
-        const y = tile.row * TILE_SIZE;
-
-        ctx.fillStyle = "#b6a477";
-
-        ctx.fillRect(
-            x,
-            y,
-            TILE_SIZE,
-            TILE_SIZE
-        );
-    });
 }
-
 
 // =====================================================
 // PATH
@@ -578,28 +563,25 @@ function drawPath() {
 
     if (pathTiles.length === 0) return;
 
-    const pathWidth = TILE_SIZE - 4;
-
     ctx.save();
 
     // ==========================================
-    // 길의 외곽
+    // 길 외곽
     // ==========================================
 
     ctx.strokeStyle = "#8d7a52";
-    ctx.lineWidth = pathWidth + 4;
+    ctx.lineWidth = TILE_SIZE + 4;
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
     ctx.beginPath();
 
-    const first = tileCenter(
+    let first = tileCenter(
         pathTiles[0].col,
         pathTiles[0].row
     );
 
     ctx.moveTo(first.x, first.y);
-
 
     for (let i = 1; i < pathTiles.length; i++) {
 
@@ -624,14 +606,16 @@ function drawPath() {
     // ==========================================
 
     ctx.strokeStyle = "#b6a477";
-    ctx.lineWidth = pathWidth;
+
+    // ★ TILE_SIZE와 동일하게 해서 틈이 생기지 않도록 함
+    ctx.lineWidth = TILE_SIZE;
+
     ctx.lineJoin = "round";
     ctx.lineCap = "round";
 
     ctx.beginPath();
 
     ctx.moveTo(first.x, first.y);
-
 
     for (let i = 1; i < pathTiles.length; i++) {
 
@@ -652,7 +636,7 @@ function drawPath() {
 
 
     // ==========================================
-    // 길 중앙의 은은한 무늬
+    // 길 중앙의 장식
     // ==========================================
 
     ctx.strokeStyle =
@@ -667,7 +651,6 @@ function drawPath() {
     ctx.beginPath();
 
     ctx.moveTo(first.x, first.y);
-
 
     for (let i = 1; i < pathTiles.length; i++) {
 
