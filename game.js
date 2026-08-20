@@ -37,6 +37,7 @@ const effects = [];
 let mouseCol = -1;
 let mouseRow = -1;
 
+let hoveredTower = null;
 
 // =====================================================
 // PATH
@@ -140,6 +141,8 @@ canvas.addEventListener("mouseleave", () => {
 
     mouseCol = -1;
     mouseRow = -1;
+
+    hoveredTower = null;
 });
 
 
@@ -628,12 +631,18 @@ function drawPath() {
 
 function drawTowerPreview() {
 
-    // 마우스가 맵 밖에 있으면 표시하지 않음
     if (
         mouseCol < 0 ||
         mouseRow < 0 ||
         !gameRunning
     ) {
+        return;
+    }
+
+
+    // 이미 설치된 타워 위에 마우스가 있다면
+    // 설치 칸 표시를 하지 않음
+    if (hoveredTower) {
         return;
     }
 
@@ -645,7 +654,6 @@ function drawTowerPreview() {
         mouseRow * TILE_SIZE;
 
 
-    // 설치 가능 여부
     const canBuild =
         !isPathTile(
             mouseCol,
@@ -658,15 +666,11 @@ function drawTowerPreview() {
         gold >= 40;
 
 
-    // ==========================================
-    // 마우스가 올라간 칸만 표시
-    // ==========================================
-
+    // 현재 마우스가 위치한 칸만 강조
     ctx.fillStyle =
         canBuild
             ? "rgba(80, 180, 255, 0.18)"
             : "rgba(255, 70, 70, 0.18)";
-
 
     ctx.fillRect(
         x + 2,
@@ -676,7 +680,7 @@ function drawTowerPreview() {
     );
 
 
-    // 현재 칸의 테두리
+    // 칸의 외곽선
     ctx.strokeStyle =
         canBuild
             ? "rgba(140, 220, 255, 0.9)"
@@ -692,10 +696,8 @@ function drawTowerPreview() {
     );
 
 
-    // ==========================================
-    // 설치 가능할 때만 타워 미리보기
-    // ==========================================
-
+    // 설치 가능한 경우
+    // 타워 미리보기
     if (canBuild) {
 
         const center =
@@ -705,10 +707,9 @@ function drawTowerPreview() {
             );
 
 
-        ctx.globalAlpha = 0.5;
+        ctx.globalAlpha = 0.45;
 
 
-        // 타워 바닥
         ctx.fillStyle = "#263238";
 
         ctx.beginPath();
@@ -724,7 +725,6 @@ function drawTowerPreview() {
         ctx.fill();
 
 
-        // 타워 본체
         ctx.fillStyle = "#4569d4";
 
         ctx.fillRect(
@@ -735,7 +735,6 @@ function drawTowerPreview() {
         );
 
 
-        // 포신
         ctx.fillStyle = "#a9c0ff";
 
         ctx.fillRect(
@@ -747,6 +746,30 @@ function drawTowerPreview() {
 
 
         ctx.globalAlpha = 1;
+
+
+        // 설치될 타워의 예상 사거리
+        ctx.beginPath();
+
+        ctx.arc(
+            center.x,
+            center.y,
+            125,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fillStyle =
+            "rgba(80, 140, 255, 0.05)";
+
+        ctx.fill();
+
+        ctx.strokeStyle =
+            "rgba(120, 180, 255, 0.35)";
+
+        ctx.lineWidth = 1;
+
+        ctx.stroke();
     }
 }
 
@@ -758,24 +781,70 @@ function drawTowers() {
 
     towers.forEach(tower => {
 
-        // 공격 범위
+        // ---------------------------------
+        // 마우스를 올린 타워의 사거리만 표시
+        // ---------------------------------
+
+        if (tower === hoveredTower) {
+
+            ctx.beginPath();
+
+            ctx.arc(
+                tower.x,
+                tower.y,
+                tower.range,
+                0,
+                Math.PI * 2
+            );
+
+
+            // 사거리 내부
+            ctx.fillStyle =
+                "rgba(80, 140, 255, 0.10)";
+
+            ctx.fill();
+
+
+            // 사거리 외곽선
+            ctx.strokeStyle =
+                "rgba(130, 190, 255, 0.75)";
+
+            ctx.lineWidth = 2;
+
+            ctx.setLineDash([6, 5]);
+
+            ctx.stroke();
+
+            ctx.setLineDash([]);
+        }
+
+
+        // ---------------------------------
+        // 타워 그림자
+        // ---------------------------------
+
+        ctx.fillStyle =
+            "rgba(0,0,0,0.25)";
+
         ctx.beginPath();
 
-        ctx.arc(
+        ctx.ellipse(
             tower.x,
-            tower.y,
-            tower.range,
+            tower.y + 17,
+            20,
+            7,
+            0,
             0,
             Math.PI * 2
         );
 
-        ctx.fillStyle =
-            "rgba(80,120,255,0.06)";
-
         ctx.fill();
 
 
+        // ---------------------------------
         // 타워 바닥
+        // ---------------------------------
+
         ctx.fillStyle = "#263238";
 
         ctx.beginPath();
@@ -791,7 +860,10 @@ function drawTowers() {
         ctx.fill();
 
 
-        // 본체
+        // ---------------------------------
+        // 타워 본체
+        // ---------------------------------
+
         ctx.fillStyle = "#4569d4";
 
         ctx.fillRect(
@@ -802,7 +874,10 @@ function drawTowers() {
         );
 
 
+        // ---------------------------------
         // 포신
+        // ---------------------------------
+
         ctx.fillStyle = "#a9c0ff";
 
         ctx.fillRect(
@@ -813,7 +888,10 @@ function drawTowers() {
         );
 
 
+        // ---------------------------------
         // 중앙
+        // ---------------------------------
+
         ctx.fillStyle = "#e1e8ff";
 
         ctx.beginPath();
@@ -829,7 +907,6 @@ function drawTowers() {
         ctx.fill();
     });
 }
-
 
 // =====================================================
 // ENEMIES
