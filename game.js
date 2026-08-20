@@ -247,7 +247,35 @@ canvas.addEventListener("click", (event) => {
 
 
     // =================================================
-    // 1. 업그레이드 버튼 확인
+    // 1. 업그레이드 패널 닫기 버튼
+    // =================================================
+
+    if (selectedTower) {
+
+        const panelWidth = 215;
+        const panelX =
+            canvas.width - panelWidth - 15;
+        const panelY = 15;
+
+        const closeX = panelX + 175;
+        const closeY = panelY + 8;
+        const closeWidth = 25;
+        const closeHeight = 25;
+
+        if (
+            x >= closeX &&
+            x <= closeX + closeWidth &&
+            y >= closeY &&
+            y <= closeY + closeHeight
+        ) {
+            selectedTower = null;
+            return;
+        }
+    }
+
+
+    // =================================================
+    // 2. 업그레이드 버튼 확인
     // =================================================
 
     if (selectedTower) {
@@ -1564,6 +1592,36 @@ function drawUpgradePanel() {
         "TOWER",
         panelX + 15,
         panelY + 25
+    );
+
+
+    // ---------------------------------------------
+    // 닫기 버튼
+    // ---------------------------------------------
+
+    ctx.fillStyle =
+        "rgba(255,255,255,0.08)";
+
+    ctx.fillRect(
+        panelX + 175,
+        panelY + 8,
+        25,
+        25
+    );
+
+    ctx.fillStyle =
+        "#ffffff";
+
+    ctx.font =
+        "bold 17px Arial";
+
+    ctx.textAlign =
+        "center";
+
+    ctx.fillText(
+        "×",
+        panelX + 187.5,
+        panelY + 26
     );
 
 
