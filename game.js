@@ -544,7 +544,6 @@ function draw() {
 
 function drawBackground() {
 
-    // 기본 배경
     ctx.fillStyle = "#6f9d52";
 
     ctx.fillRect(
@@ -554,25 +553,18 @@ function drawBackground() {
         canvas.height
     );
 
-
-    // 격자를 그리지 않고
-    // 맵 전체를 자연스럽게 유지
-
-
-    // 길 타일만 표시
     pathTiles.forEach(tile => {
 
         const x = tile.col * TILE_SIZE;
         const y = tile.row * TILE_SIZE;
 
-
         ctx.fillStyle = "#b6a477";
 
         ctx.fillRect(
-            x + 2,
-            y + 2,
-            TILE_SIZE - 4,
-            TILE_SIZE - 4
+            x,
+            y,
+            TILE_SIZE,
+            TILE_SIZE
         );
     });
 }
