@@ -1720,18 +1720,15 @@ function draw() {
     }
 
     if (gameState === "menu") {
-        drawStartScreen();
+        drawMainMenu();
     }
 
-    if (gameState === "help") {
-        drawHelpScreen();
+    if (gameState === "howto") {
+        drawHowToPlay();
     }
 
-    if (
-        gameState === "gameover" ||
-        gameState === "clear"
-    ) {
-        drawGameResultScreen();
+    if (gameState === "ended") {
+        drawGameEndPopup();
     }
 }
 
@@ -3807,4 +3804,7 @@ function gameLoop() {
 updateUI();
 
 gameState = "menu";
+draw();
+
+// 초기 화면 표시
 draw();
