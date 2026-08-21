@@ -40,11 +40,12 @@ let enemiesDefeated = 0;
 let waveEnemiesSpawned = 0;
 let waveEnemiesDefeated = 0;
 let waveActive = false;
+let waveBossDefeated = false;
 let waveClearTimer = null;
 let spawnTimer = null;
 
 const TOTAL_WAVES = 5;
-const WAVE_ENEMIES = [5, 7, 9, 12, 15];
+const WAVE_ENEMIES = [15, 21, 27, 36, 45];
 
 let baseHP = 100;
 let gold = 100;
@@ -162,6 +163,7 @@ function startGame() {
     waveEnemiesSpawned = 0;
     waveEnemiesDefeated = 0;
     waveActive = false;
+    waveBossDefeated = false;
 
     if (spawnTimer) {
         clearTimeout(spawnTimer);
@@ -689,25 +691,32 @@ function hasTower(col, row) {
 
 function getEnemyStats() {
 
-    // 후반 웨이브일수록 빠른 몬스터가 섞여 나옵니다.
+    const roll = Math.random();
+
+    // 뭉쳐서 나오는 타입
+    if (roll < 0.25) {
+
+        return {
+            hp: 22 + wave * 5,
+            maxHP: 22 + wave * 5,
+            speed: 1.35 + wave * 0.06,
+            type: "cluster"
+        };
+    }
+
+    // 후반으로 갈수록 빠른 몬스터 증가
     const fastChance =
-        wave <= 2
-            ? 0
-            : wave === 3
-                ? 0.20
-                : wave === 4
-                    ? 0.35
-                    : 0.50;
+        wave === 1 ? 0.05 :
+        wave === 2 ? 0.15 :
+        wave === 3 ? 0.25 :
+        wave === 4 ? 0.35 : 0.45;
 
-    const isFast =
-        Math.random() < fastChance;
-
-    if (isFast) {
+    if (Math.random() < fastChance) {
 
         return {
             hp: 24 + wave * 5,
             maxHP: 24 + wave * 5,
-            speed: 1.8 + wave * 0.12,
+            speed: 1.9 + wave * 0.12,
             type: "fast"
         };
     }
@@ -792,7 +801,43 @@ function spawnEnemy() {
     } else {
 
         spawnTimer = null;
+
+        if (wave === TOTAL_WAVES) {
+            spawnTimer = setTimeout(
+                spawnBoss,
+                1400
+            );
+        }
     }
+}
+
+
+function spawnBoss() {
+
+    if (!gameRunning || wave !== TOTAL_WAVES) {
+        return;
+    }
+
+    const start =
+        tileCenter(
+            pathTiles[0].col,
+            pathTiles[0].row
+        );
+
+    const bossHP = 500;
+
+    enemies.push({
+        x: start.x,
+        y: start.y,
+        pathIndex: 1,
+        hp: bossHP,
+        maxHP: bossHP,
+        speed: 0.62,
+        type: "boss",
+        isBoss: true
+    });
+
+    spawnTimer = null;
 }
 
 
@@ -807,6 +852,7 @@ function startWave() {
 
     waveEnemiesSpawned = 0;
     waveEnemiesDefeated = 0;
+    waveBossDefeated = false;
 
 
     updateUI();
@@ -831,7 +877,8 @@ function checkWaveClear() {
 
     if (
         waveEnemiesSpawned >= targetCount &&
-        enemies.length === 0
+        enemies.length === 0 &&
+        (wave !== TOTAL_WAVES || waveBossDefeated)
     ) {
 
         waveActive = false;
@@ -1135,8 +1182,13 @@ function updateBullets() {
                         1
                     );
 
-                    enemiesDefeated++;
-                    gold += 10;
+                    if (enemy.type === "boss") {
+                        waveBossDefeated = true;
+                        gold += 100;
+                    } else {
+                        enemiesDefeated++;
+                        gold += 10;
+                    }
                 }
             }
 
@@ -2366,9 +2418,13 @@ function drawEnemies() {
         // 몬스터
 
         ctx.fillStyle =
-            enemy.type === "fast"
-                ? "#ff8a3d"
-                : "#d93636";
+            enemy.type === "boss"
+                ? "#7a1fa2"
+                : enemy.type === "fast"
+                    ? "#ff8a3d"
+                    : enemy.type === "cluster"
+                        ? "#4cc9a6"
+                        : "#d93636";
 
 
         ctx.beginPath();
@@ -2875,7 +2931,7 @@ function drawHowToPlay() {
         "• 몬스터를 처치하면 골드를 얻습니다.",
         "• 골드를 사용해 타워를 최대 3단계까지 업그레이드하세요.",
         "• 기지 HP가 0이 되면 게임 오버입니다.",
-        "• 몬스터 20마리를 처치하면 게임 클리어입니다."
+        "• 5웨이브의 마지막 보스를 처치하면 게임 클리어입니다."
     ];
 
 
