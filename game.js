@@ -1703,7 +1703,8 @@ function draw() {
         canvas.height
     );
 
-    drawMap();
+    drawBackground();
+    drawPath();
     drawBase();
     drawEnemies();
     drawBullets();
@@ -3807,4 +3808,5 @@ gameState = "menu";
 draw();
 
 // 초기 화면 표시
+
 draw();
