@@ -77,27 +77,262 @@ let selectedTower = null;
 // TOWER SETTINGS
 // =====================================================
 
-const TOWER_COST = 40;
+const TOWER_COST = 40;          // 타워 소환 비용
+const MAX_INVENTORY = 8;
 
-// 모든 타워의 설치 가격은 동일합니다.
+// 타워 종류
 const towerTypes = {
-    basic:  { name: "BASIC",  damage: 1.00, range: 1.00, fireRate: 1.00, splash: 0 },
-    cannon: { name: "CANNON", damage: 1.80, range: 0.90, fireRate: 1.45, splash: 0 },
-    splash: { name: "SPLASH", damage: 0.75, range: 0.95, fireRate: 1.15, splash: 48 }
+    basic: {
+        name: "BASIC",
+        damage: 1.00,
+        range: 1.00,
+        fireRate: 1.00,
+        splash: 0
+    },
+
+    cannon: {
+        name: "CANNON",
+        damage: 1.80,
+        range: 0.90,
+        fireRate: 1.45,
+        splash: 0
+    },
+
+    splash: {
+        name: "SPLASH",
+        damage: 0.75,
+        range: 0.95,
+        fireRate: 1.15,
+        splash: 48
+    }
 };
 
-let selectedTowerType = "basic";
+// 등급 확률: 합계 100%
+const towerRarities = {
+    normal: {
+        name: "NORMAL",
+        shortName: "N",
+        chance: 59.9,
+        multiplier: 1.0,
+        color: "#c9c9c9"
+    },
+
+    rare: {
+        name: "RARE",
+        shortName: "R",
+        chance: 25.0,
+        multiplier: 1.5,
+        color: "#4da3ff"
+    },
+
+    unique: {
+        name: "UNIQUE",
+        shortName: "U",
+        chance: 13.0,
+        multiplier: 2.5,
+        color: "#b56cff"
+    },
+
+    legendary: {
+        name: "LEGENDARY",
+        shortName: "L",
+        chance: 2.0,
+        multiplier: 5.0,
+        color: "#ffd34d"
+    },
+
+    superLegendary: {
+        name: "SUPER LEGEND",
+        shortName: "SL",
+        chance: 0.1,
+        multiplier: 20.0,
+        color: "#ff4d7d"
+    }
+};
+
+const rarityOrder = [
+    "normal",
+    "rare",
+    "unique",
+    "legendary",
+    "superLegendary"
+];
+
+// 소환된 타워를 보관하는 인벤토리
+const towerInventory = [];
+
+// 드래그 중인 타워
+let draggingTower = null;
+let dragX = 0;
+let dragY = 0;
+
+// 카드가 배치된 하단 영역
+const inventoryArea = {
+    x: 15,
+    y: canvas.height - 78,
+    width: canvas.width - 205,
+    height: 63
+};
+
+// 소환 버튼
+const summonButton = {
+    x: canvas.width - 175,
+    y: canvas.height - 78,
+    width: 160,
+    height: 63
+};
 
 const towerLevels = {
+    1: {
+        damage: 10,
+        range: 125,
+        fireRate: 35,
+        upgradeCost: 60
+    },
 
-    1: { damage: 10, range: 125, fireRate: 35, upgradeCost: 60 },
-    2: { damage: 18, range: 140, fireRate: 28, upgradeCost: 120 },
-    3: { damage: 30, range: 160, fireRate: 20, upgradeCost: 0 }
+    2: {
+        damage: 18,
+        range: 140,
+        fireRate: 28,
+        upgradeCost: 120
+    },
+
+    3: {
+        damage: 30,
+        range: 160,
+        fireRate: 20,
+        upgradeCost: 0
+    }
 };
 
 
 // =====================================================
+// TOWER RANDOM SUMMON
+// =====================================================
+
+function rollTowerRarity() {
+
+    const roll = Math.random() * 100;
+    let accumulated = 0;
+
+    for (const rarityKey of rarityOrder) {
+
+        accumulated +=
+            towerRarities[rarityKey].chance;
+
+        if (roll < accumulated) {
+            return rarityKey;
+        }
+    }
+
+    return "normal";
+}
+
+
+function rollTowerType() {
+
+    const types = [
+        "basic",
+        "cannon",
+        "splash"
+    ];
+
+    return types[
+        Math.floor(
+            Math.random() * types.length
+        )
+    ];
+}
+
+
+function summonTower() {
+
+    if (!gameRunning) return;
+
+    if (towerInventory.length >= MAX_INVENTORY) {
+        return;
+    }
+
+    if (gold < TOWER_COST) {
+        return;
+    }
+
+    gold -= TOWER_COST;
+
+    const typeKey =
+        rollTowerType();
+
+    const rarityKey =
+        rollTowerRarity();
+
+    const rarity =
+        towerRarities[rarityKey];
+
+    const type =
+        towerTypes[typeKey];
+
+    towerInventory.push({
+
+        id:
+            Date.now() +
+            Math.random(),
+
+        type: typeKey,
+        rarity: rarityKey,
+
+        level: 1,
+
+        damage:
+            towerLevels[1].damage *
+            type.damage *
+            rarity.multiplier *
+            (
+                rarityKey === "superLegendary"
+                    ? 3
+                    : 1
+            ),
+
+        range:
+            towerLevels[1].range *
+            type.range *
+            (
+                rarityKey === "superLegendary"
+                    ? 2.5
+                    : 1 +
+                        (
+                            rarity.multiplier - 1
+                        ) * 0.12
+            ),
+
+        fireRate:
+            towerLevels[1].fireRate *
+            type.fireRate /
+            (
+                rarityKey === "superLegendary"
+                    ? 3
+                    : rarity.multiplier
+            ),
+
+        splashRadius:
+            type.splash *
+            (
+                rarityKey === "superLegendary"
+                    ? 2.5
+                    : 1 +
+                        (
+                            rarity.multiplier - 1
+                        ) * 0.15
+            )
+    });
+
+    updateUI();
+    draw();
+}
+
+
+// =====================================================
 // MONSTER PATH
+
 // =====================================================
 
 const pathTiles = [
@@ -184,9 +419,14 @@ function startGame() {
     bullets.length = 0;
     effects.length = 0;
 
+    towerInventory.length = 0;
+
     selectedTower = null;
     hoveredTower = null;
-    selectedTowerType = "basic";
+
+    draggingTower = null;
+    dragX = 0;
+    dragY = 0;
 
     startButton.disabled = true;
     startButton.textContent = "RUNNING";
@@ -200,41 +440,227 @@ function startGame() {
 
 
 // =====================================================
+// INVENTORY / DRAG HELPERS
+// =====================================================
+
+function getInventoryCardRect(index) {
+
+    const gap = 7;
+    const cardWidth = 70;
+
+    return {
+        x:
+            inventoryArea.x +
+            index * (cardWidth + gap),
+
+        y: inventoryArea.y,
+
+        width: cardWidth,
+        height: inventoryArea.height
+    };
+}
+
+
+function getCanvasPosition(event) {
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    return {
+        x:
+            (event.clientX - rect.left) *
+            (canvas.width / rect.width),
+
+        y:
+            (event.clientY - rect.top) *
+            (canvas.height / rect.height)
+    };
+}
+
+
+function getBuildPosition(x, y) {
+
+    const col =
+        Math.floor(x / TILE_SIZE);
+
+    const row =
+        Math.floor(y / TILE_SIZE);
+
+    if (
+        col < 0 ||
+        row < 0 ||
+        col >= COLS ||
+        row >= ROWS
+    ) {
+        return null;
+    }
+
+    return {
+        col,
+        row
+    };
+}
+
+
+function canPlaceTower(col, row) {
+
+    if (
+        col < 0 ||
+        row < 0 ||
+        col >= COLS ||
+        row >= ROWS
+    ) {
+        return false;
+    }
+
+    if (isPathTile(col, row)) {
+        return false;
+    }
+
+    if (hasTower(col, row)) {
+        return false;
+    }
+
+    return true;
+}
+
+
+function placeInventoryTower(towerData, col, row) {
+
+    if (!canPlaceTower(col, row)) {
+        return false;
+    }
+
+    const center =
+        tileCenter(col, row);
+
+    towers.push({
+
+        id: towerData.id,
+
+        col,
+        row,
+
+        x: center.x,
+        y: center.y,
+
+        type: towerData.type,
+        rarity: towerData.rarity,
+
+        level: towerData.level,
+
+        damage: towerData.damage,
+        range: towerData.range,
+        fireRate: towerData.fireRate,
+        splashRadius:
+            towerData.splashRadius || 0,
+
+        cooldown: 0
+    });
+
+    return true;
+}
+
+
+function startDraggingInventoryTower(index, x, y) {
+
+    const towerData =
+        towerInventory[index];
+
+    if (!towerData) return;
+
+    draggingTower = {
+        data: towerData,
+        index: index
+    };
+
+    dragX = x;
+    dragY = y;
+
+    selectedTower = null;
+}
+
+
+function finishDraggingTower(x, y) {
+
+    if (!draggingTower) {
+        return;
+    }
+
+    const position =
+        getBuildPosition(x, y);
+
+    if (
+        position &&
+        canPlaceTower(
+            position.col,
+            position.row
+        )
+    ) {
+
+        const placed =
+            placeInventoryTower(
+                draggingTower.data,
+                position.col,
+                position.row
+            );
+
+        if (placed) {
+
+            towerInventory.splice(
+                draggingTower.index,
+                1
+            );
+        }
+    }
+
+    draggingTower = null;
+
+    updateUI();
+    draw();
+}
+
+
+// =====================================================
 // MOUSE MOVE
 // =====================================================
 
 canvas.addEventListener("mousemove", (event) => {
 
-    const rect = canvas.getBoundingClientRect();
+    const { x, y } =
+        getCanvasPosition(event);
 
-    const x =
-        (event.clientX - rect.left)
-        * (canvas.width / rect.width);
+    mouseCol =
+        Math.floor(x / TILE_SIZE);
 
-    const y =
-        (event.clientY - rect.top)
-        * (canvas.height / rect.height);
+    mouseRow =
+        Math.floor(y / TILE_SIZE);
 
+    if (draggingTower) {
 
-    mouseCol = Math.floor(x / TILE_SIZE);
-    mouseRow = Math.floor(y / TILE_SIZE);
+        dragX = x;
+        dragY = y;
 
+        hoveredTower = null;
+
+        draw();
+
+        return;
+    }
 
     hoveredTower = null;
 
-
     for (const tower of towers) {
 
-        const distance = Math.hypot(
-            tower.x - x,
-            tower.y - y
-        );
-
+        const distance =
+            Math.hypot(
+                tower.x - x,
+                tower.y - y
+            );
 
         if (distance < 25) {
 
             hoveredTower = tower;
-
             break;
         }
     }
@@ -251,6 +677,76 @@ canvas.addEventListener("mouseleave", () => {
     mouseRow = -1;
 
     hoveredTower = null;
+});
+
+
+// =====================================================
+// MOUSE DRAG
+// =====================================================
+
+canvas.addEventListener("mousedown", (event) => {
+
+    if (gameState !== "playing") {
+        return;
+    }
+
+    const { x, y } =
+        getCanvasPosition(event);
+
+    // 소환 버튼
+    if (
+        x >= summonButton.x &&
+        x <= summonButton.x + summonButton.width &&
+        y >= summonButton.y &&
+        y <= summonButton.y + summonButton.height
+    ) {
+
+        summonTower();
+        return;
+    }
+
+    // 인벤토리 카드 드래그 시작
+    for (
+        let i = 0;
+        i < towerInventory.length;
+        i++
+    ) {
+
+        const rect =
+            getInventoryCardRect(i);
+
+        if (
+            x >= rect.x &&
+            x <= rect.x + rect.width &&
+            y >= rect.y &&
+            y <= rect.y + rect.height
+        ) {
+
+            startDraggingInventoryTower(
+                i,
+                x,
+                y
+            );
+
+            draw();
+
+            return;
+        }
+    }
+});
+
+
+canvas.addEventListener("mouseup", (event) => {
+
+    if (gameState !== "playing") {
+        draggingTower = null;
+        return;
+    }
+
+    const { x, y } =
+        getCanvasPosition(event);
+
+    finishDraggingTower(x, y);
 });
 
 
@@ -344,6 +840,7 @@ canvas.addEventListener("click", (event) => {
         ) {
             gameResult = null;
             gameState = "menu";
+            draggingTower = null;
             draw();
             return;
         }
@@ -364,37 +861,6 @@ canvas.addEventListener("click", (event) => {
 
 
     if (!gameRunning) return;
-
-    // =================================================
-    // 타워 종류 선택
-    // =================================================
-
-    if (gameState === "playing") {
-
-        const selectorY = canvas.height - 72;
-        const buttonWidth = 125;
-        const gap = 10;
-        const totalWidth = buttonWidth * 3 + gap * 2;
-        const startX = (canvas.width - totalWidth) / 2;
-        const types = ["basic", "cannon", "splash"];
-
-        for (let i = 0; i < types.length; i++) {
-
-            const bx = startX + i * (buttonWidth + gap);
-
-            if (
-                x >= bx &&
-                x <= bx + buttonWidth &&
-                y >= selectorY &&
-                y <= selectorY + 48
-            ) {
-                selectedTowerType = types[i];
-                selectedTower = null;
-                return;
-            }
-        }
-    }
-
 
     // =================================================
     // 1. 업그레이드 패널 닫기 / 버튼 확인
@@ -497,86 +963,11 @@ canvas.addEventListener("click", (event) => {
 
 
     // =================================================
-    // 4. 빈 공간 클릭
+    // 빈 공간 클릭
     // =================================================
 
     selectedTower = null;
 
-
-    // =================================================
-    // 5. 골드 확인
-    // =================================================
-
-    if (gold < TOWER_COST) {
-
-        return;
-    }
-
-
-    // =================================================
-    // 6. 길 확인
-    // =================================================
-
-    if (isPathTile(col, row)) {
-
-        return;
-    }
-
-
-    // =================================================
-    // 7. 기존 타워 확인
-    // =================================================
-
-    if (hasTower(col, row)) {
-
-        return;
-    }
-
-
-    // =================================================
-    // 8. 타워 설치
-    // =================================================
-
-    const center =
-        tileCenter(col, row);
-
-
-    const towerType = towerTypes[selectedTowerType];
-
-    towers.push({
-
-        col: col,
-        row: row,
-
-        x: center.x,
-        y: center.y,
-
-        type: selectedTowerType,
-
-        level: 1,
-
-        damage:
-            towerLevels[1].damage *
-            towerType.damage,
-
-        range:
-            towerLevels[1].range *
-            towerType.range,
-
-        fireRate:
-            towerLevels[1].fireRate *
-            towerType.fireRate,
-
-        splashRadius:
-            towerType.splash,
-
-        cooldown: 0
-    });
-
-
-    gold -= TOWER_COST;
-
-    updateUI();
 });
 
 
@@ -588,100 +979,84 @@ function upgradeTower(tower) {
 
     if (!tower) return;
 
-
-    // 최고 레벨
     if (tower.level >= 3) {
-
         return;
     }
-
 
     const currentLevel =
         tower.level;
 
-
     const nextLevel =
         currentLevel + 1;
 
-
     const upgradeCost =
-        towerLevels[
-            currentLevel
-        ].upgradeCost;
+        towerLevels[currentLevel].upgradeCost;
 
-
-    // 골드 부족
     if (gold < upgradeCost) {
-
         return;
     }
 
-
-    // 비용 차감
     gold -= upgradeCost;
 
-
-    // 레벨 상승
     tower.level =
         nextLevel;
 
+    const type =
+        towerTypes[
+            tower.type
+        ];
 
-    // 능력치 변경
-    const towerType =
-        towerTypes[tower.type || "basic"];
+    const rarity =
+        towerRarities[
+            tower.rarity
+        ];
 
     tower.damage =
         towerLevels[nextLevel].damage *
-        towerType.damage;
+        type.damage *
+        rarity.multiplier *
+        (
+            tower.rarity === "superLegendary"
+                ? 3
+                : 1
+        );
 
     tower.range =
         towerLevels[nextLevel].range *
-        towerType.range;
+        type.range *
+        (
+            tower.rarity === "superLegendary"
+                ? 2.5
+                : 1 +
+                    (
+                        rarity.multiplier - 1
+                    ) * 0.12
+        );
 
     tower.fireRate =
         towerLevels[nextLevel].fireRate *
-        towerType.fireRate;
+        type.fireRate /
+        (
+            tower.rarity === "superLegendary"
+                ? 3
+                : rarity.multiplier
+        );
 
     tower.splashRadius =
-        towerType.splash;
+        type.splash *
+        (
+            tower.rarity === "superLegendary"
+                ? 2.5
+                : 1 +
+                    (
+                        rarity.multiplier - 1
+                    ) * 0.15
+        );
 
-
-    // 업그레이드 효과
-    createUpgradeEffect(
-        tower.x,
-        tower.y
-    );
-
+    selectedTower = tower;
 
     updateUI();
-}
-
-
-// =====================================================
-// PATH CHECK
-// =====================================================
-
-function isPathTile(col, row) {
-
-    return pathTiles.some(tile =>
-
-        tile.col === col &&
-        tile.row === row
-    );
-}
-
-
-// =====================================================
-// TOWER CHECK
-// =====================================================
-
-function hasTower(col, row) {
-
-    return towers.some(tower =>
-
-        tower.col === col &&
-        tower.row === row
-    );
+    draw();
 }
 
 
@@ -1018,10 +1393,7 @@ function updateTowers() {
 
 
         let target = null;
-
-        let closestDistance =
-            Infinity;
-
+        let bestProgress = -Infinity;
 
         enemies.forEach(enemy => {
 
@@ -1031,16 +1403,51 @@ function updateTowers() {
                     enemy.y - tower.y
                 );
 
-
             if (
-                distance <= tower.range &&
-                distance < closestDistance
+                distance > tower.range ||
+                enemy.hp <= 0
+            ) {
+                return;
+            }
+
+            // pathIndex는 현재 목표 지점의 인덱스입니다.
+            // 현재 목표 지점까지 남은 거리를 이용해
+            // "길을 얼마나 많이 진행했는가"를 계산합니다.
+            const nextIndex =
+                Math.min(
+                    enemy.pathIndex,
+                    pathTiles.length - 1
+                );
+
+            const nextPoint =
+                tileCenter(
+                    pathTiles[nextIndex].col,
+                    pathTiles[nextIndex].row
+                );
+
+            const distanceToNext =
+                Math.hypot(
+                    nextPoint.x - enemy.x,
+                    nextPoint.y - enemy.y
+                );
+
+            const progress =
+                enemy.pathIndex -
+                (
+                    distanceToNext /
+                    TILE_SIZE
+                );
+
+            // 진행도가 가장 높은 몬스터,
+            // 즉 기지에 가장 가까운 몬스터를 우선 공격합니다.
+            if (
+                progress > bestProgress
             ) {
 
-                target = enemy;
+                bestProgress =
+                    progress;
 
-                closestDistance =
-                    distance;
+                target = enemy;
             }
         });
 
@@ -1315,7 +1722,7 @@ function draw() {
 
     drawWaveStatus();
 
-    drawTowerSelector();
+    drawTowerInventory();
 
     drawUpgradePanel();
 
@@ -1972,80 +2379,314 @@ function drawTowers() {
 
 
 // =====================================================
-// TOWER TYPE SELECTOR
+// TOWER INVENTORY + SUMMON UI
 // =====================================================
 
-function drawTowerSelector() {
+function drawTowerInventory() {
 
-    if (gameState !== "playing") return;
+    if (gameState !== "playing") {
+        return;
+    }
 
-    const y = canvas.height - 72;
-    const width = 125;
-    const height = 48;
-    const gap = 10;
-    const total = width * 3 + gap * 2;
-    const startX = (canvas.width - total) / 2;
+    // 인벤토리 배경
+    ctx.fillStyle =
+        "rgba(15,20,28,0.88)";
 
-    const types = [
-        ["basic", "BASIC"],
-        ["cannon", "CANNON"],
-        ["splash", "SPLASH"]
-    ];
+    ctx.fillRect(
+        inventoryArea.x,
+        inventoryArea.y,
+        inventoryArea.width,
+        inventoryArea.height
+    );
 
-    types.forEach((item, i) => {
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.18)";
 
-        const x =
-            startX + i * (width + gap);
+    ctx.strokeRect(
+        inventoryArea.x,
+        inventoryArea.y,
+        inventoryArea.width,
+        inventoryArea.height
+    );
 
-        const selected =
-            selectedTowerType === item[0];
+
+    towerInventory.forEach(
+        (tower, index) => {
+
+            const rect =
+                getInventoryCardRect(index);
+
+            const rarity =
+                towerRarities[
+                    tower.rarity
+                ];
+
+            ctx.fillStyle =
+                "rgba(30,35,45,0.98)";
+
+            ctx.fillRect(
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height
+            );
+
+            ctx.strokeStyle =
+                rarity.color;
+
+            ctx.lineWidth = 2;
+
+            ctx.strokeRect(
+                rect.x,
+                rect.y,
+                rect.width,
+                rect.height
+            );
+
+
+            // 등급
+            ctx.fillStyle =
+                rarity.color;
+
+            ctx.font =
+                "bold 9px Arial";
+
+            ctx.textAlign =
+                "center";
+
+            ctx.fillText(
+                rarity.shortName,
+                rect.x + rect.width / 2,
+                rect.y + 13
+            );
+
+
+            // 타워 아이콘
+            const cx =
+                rect.x + rect.width / 2;
+
+            const cy =
+                rect.y + 34;
+
+            ctx.fillStyle =
+                tower.type === "cannon"
+                    ? "#c96e4e"
+                    : tower.type === "splash"
+                        ? "#9369d0"
+                        : "#5275df";
+
+            ctx.fillRect(
+                cx - 10,
+                cy - 8,
+                20,
+                20
+            );
+
+
+            // 레벨
+            ctx.fillStyle =
+                "#ffffff";
+
+            ctx.font =
+                "bold 9px Arial";
+
+            ctx.fillText(
+                "Lv." + tower.level,
+                cx,
+                rect.y + 57
+            );
+        }
+    );
+
+
+    // 소환 버튼
+    const canSummon =
+        gold >= TOWER_COST &&
+        towerInventory.length <
+            MAX_INVENTORY;
+
+    ctx.fillStyle =
+        canSummon
+            ? "#3c78d8"
+            : "#555b63";
+
+    ctx.fillRect(
+        summonButton.x,
+        summonButton.y,
+        summonButton.width,
+        summonButton.height
+    );
+
+    ctx.strokeStyle =
+        "rgba(255,255,255,0.25)";
+
+    ctx.lineWidth = 1;
+
+    ctx.strokeRect(
+        summonButton.x,
+        summonButton.y,
+        summonButton.width,
+        summonButton.height
+    );
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 13px Arial";
+    ctx.textAlign = "center";
+
+    ctx.fillText(
+        "SUMMON TOWER",
+        summonButton.x +
+            summonButton.width / 2,
+        summonButton.y + 25
+    );
+
+    ctx.fillStyle = "#dbe6ff";
+    ctx.font = "11px Arial";
+
+    ctx.fillText(
+        TOWER_COST +
+        " GOLD  ·  " +
+        towerInventory.length +
+        "/" +
+        MAX_INVENTORY,
+        summonButton.x +
+            summonButton.width / 2,
+        summonButton.y + 44
+    );
+
+
+    // 드래그 중인 타워
+    if (draggingTower) {
+
+        const tower =
+            draggingTower.data;
+
+        const rarity =
+            towerRarities[
+                tower.rarity
+            ];
+
+        const position =
+            getBuildPosition(
+                dragX,
+                dragY
+            );
+
+        let valid = false;
+
+        if (position) {
+
+            valid =
+                canPlaceTower(
+                    position.col,
+                    position.row
+                );
+        }
+
+
+        // 설치 칸 표시
+        if (position) {
+
+            ctx.fillStyle =
+                valid
+                    ? "rgba(80,220,130,0.25)"
+                    : "rgba(255,70,70,0.25)";
+
+            ctx.fillRect(
+                position.col * TILE_SIZE + 2,
+                position.row * TILE_SIZE + 2,
+                TILE_SIZE - 4,
+                TILE_SIZE - 4
+            );
+
+            ctx.strokeStyle =
+                valid
+                    ? "#74e39a"
+                    : "#ff7777";
+
+            ctx.lineWidth = 2;
+
+            ctx.strokeRect(
+                position.col * TILE_SIZE + 2,
+                position.row * TILE_SIZE + 2,
+                TILE_SIZE - 4,
+                TILE_SIZE - 4
+            );
+        }
+
+
+        // 드래그 중인 카드
+        ctx.save();
+
+        ctx.globalAlpha = 0.88;
 
         ctx.fillStyle =
-            selected
-                ? "rgba(75,125,210,0.98)"
-                : "rgba(25,30,38,0.94)";
+            "rgba(30,35,45,0.98)";
 
         ctx.fillRect(
-            x,
-            y,
-            width,
-            height
+            dragX - 35,
+            dragY - 35,
+            70,
+            70
         );
 
         ctx.strokeStyle =
-            selected
-                ? "rgba(170,220,255,0.95)"
-                : "rgba(255,255,255,0.2)";
+            rarity.color;
 
-        ctx.lineWidth =
-            selected ? 2 : 1;
+        ctx.lineWidth = 3;
 
         ctx.strokeRect(
-            x,
-            y,
-            width,
-            height
+            dragX - 35,
+            dragY - 35,
+            70,
+            70
         );
 
-        ctx.fillStyle = "#ffffff";
-        ctx.font = "bold 12px Arial";
-        ctx.textAlign = "center";
+        ctx.fillStyle =
+            rarity.color;
+
+        ctx.font =
+            "bold 9px Arial";
+
+        ctx.textAlign =
+            "center";
 
         ctx.fillText(
-            item[1],
-            x + width / 2,
-            y + 20
+            rarity.name,
+            dragX,
+            dragY - 18
         );
 
-        ctx.fillStyle = "#bfc8d8";
-        ctx.font = "11px Arial";
+        ctx.fillStyle =
+            tower.type === "cannon"
+                ? "#c96e4e"
+                : tower.type === "splash"
+                    ? "#9369d0"
+                    : "#5275df";
+
+        ctx.fillRect(
+            dragX - 13,
+            dragY - 7,
+            26,
+            26
+        );
+
+        ctx.fillStyle =
+            "#ffffff";
+
+        ctx.font =
+            "bold 10px Arial";
 
         ctx.fillText(
-            TOWER_COST + " GOLD",
-            x + width / 2,
-            y + 37
+            towerTypes[
+                tower.type
+            ].name,
+            dragX,
+            dragY + 31
         );
-    });
+
+        ctx.restore();
+    }
 }
 
 
@@ -2171,8 +2812,19 @@ function drawUpgradePanel() {
     const selectedType =
         towerTypes[selectedTower.type || "basic"];
 
+    const selectedRarity =
+        towerRarities[
+            selectedTower.rarity || "normal"
+        ];
+
+    ctx.fillStyle =
+        selectedRarity.color;
+
     ctx.fillText(
-        selectedType.name + " TOWER",
+        selectedRarity.name +
+        " " +
+        selectedType.name +
+        " TOWER",
         panelX + 15,
         panelY + 25
     );
@@ -2925,10 +3577,11 @@ function drawHowToPlay() {
 
 
     const lines = [
-        "• 마우스를 올려 설치 가능한 칸을 확인하세요.",
-        "• 빈 칸을 클릭하면 타워를 설치할 수 있습니다.",
+        "• SUMMON TOWER를 눌러 랜덤 타워를 소환하세요.",
+        "• 노말 / 레어 / 유니크 / 전설 / 초전설 등급이 있습니다.",
+        "• 하단의 타워를 마우스로 드래그해 원하는 칸에 배치하세요.",
+        "• 타워는 사거리 안에서 기지에 가장 가까운 몬스터를 우선 공격합니다.",
         "• 타워를 클릭하면 사거리와 업그레이드 정보가 표시됩니다.",
-        "• 몬스터를 처치하면 골드를 얻습니다.",
         "• 골드를 사용해 타워를 최대 3단계까지 업그레이드하세요.",
         "• 기지 HP가 0이 되면 게임 오버입니다.",
         "• 5웨이브의 마지막 보스를 처치하면 게임 클리어입니다."
