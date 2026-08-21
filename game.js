@@ -1703,41 +1703,38 @@ function draw() {
         canvas.height
     );
 
-
-    drawBackground();
-
-    drawPath();
-
-    drawTowerPreview();
-
+    drawMap();
+    drawBase();
+    drawEnemies();
+    drawBullets();
+    drawEffects();
     drawTowers();
 
-    drawEnemies();
+    if (gameState === "playing") {
+        drawWaveStatus();
+        drawTowerInventory();
+    }
 
-    drawBullets();
-
-    drawEffects();
-
-    drawBase();
-
-    drawWaveStatus();
-
-    drawTowerInventory();
-
-    drawUpgradePanel();
+    if (selectedTower) {
+        drawUpgradePanel();
+    }
 
     if (gameState === "menu") {
-        drawMainMenu();
+        drawStartScreen();
     }
 
-    if (gameState === "howto") {
-        drawHowToPlay();
+    if (gameState === "help") {
+        drawHelpScreen();
     }
 
-    if (gameState === "ended") {
-        drawGameEndPopup();
+    if (
+        gameState === "gameover" ||
+        gameState === "clear"
+    ) {
+        drawGameResultScreen();
     }
 }
+
 
 
 // =====================================================
@@ -3792,31 +3789,15 @@ function drawMenuButton(
 
 function gameLoop() {
 
-    if (!gameRunning) {
-
-        draw();
-
-        return;
+    if (gameRunning) {
+        updateGame();
     }
-
-
-    updateEnemies();
-
-    updateTowers();
-
-    updateBullets();
-
-    updateEffects();
-
-    checkWaveClear();
 
     draw();
 
-
-    requestAnimationFrame(
-        gameLoop
-    );
+    requestAnimationFrame(gameLoop);
 }
+
 
 
 // =====================================================
