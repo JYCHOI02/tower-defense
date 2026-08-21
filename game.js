@@ -824,7 +824,7 @@ function spawnBoss() {
             pathTiles[0].row
         );
 
-    const bossHP = 500;
+    const bossHP = 1200;
 
     enemies.push({
         x: start.x,
@@ -1187,7 +1187,7 @@ function updateBullets() {
                         gold += 100;
                     } else {
                         enemiesDefeated++;
-                        gold += 10;
+                        gold += 3;
                     }
                 }
             }
